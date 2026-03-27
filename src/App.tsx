@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import GpxParser from 'gpxparser';
 import { Upload } from 'lucide-react';
 import { Map } from './components/Map';
@@ -12,6 +12,7 @@ import { TopNav } from './components/TopNav';
 import { LeftToolbar } from './components/LeftToolbar';
 import { RightToolbar } from './components/RightToolbar';
 import { StatsPanel } from './components/StatsPanel';
+import { TrackList } from './components/TrackList';
 import { GPXTrack, GPXPoint } from './types';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [showElevation, setShowElevation] = useState(false);
+  const [showTrackList, setShowTrackList] = useState(false);
 
   const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,14 +58,153 @@ export default function App() {
     reader.readAsText(file);
   }, []);
 
+  const handleDelete = useCallback((id: string) => {
+    setTracks(prev => prev.filter(t => t.id !== id));
+    if (selectedTrackId === id) {
+      setSelectedTrackId(null);
+    }
+  }, [selectedTrackId]);
+
+  const handleDownload = useCallback((id: string) => {
+    const track = tracks.find(t => t.id === id);
+    if (!track) return;
+
+    const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Studio Clone" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>${track.name}</name>
+    <trkseg>
+      ${track.points.map(p => `
+      <trkpt lat="${p.lat}" lon="${p.lng}">
+        ${p.ele ? `<ele>${p.ele}</ele>` : ''}
+        ${p.time ? `<time>${p.time.toISOString()}</time>` : ''}
+      </trkpt>`).join('')}
+    </trkseg>
+  </trk>
+</gpx>`;
+
+    const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${track.name}.gpx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [tracks]);
+
   const selectedTrack = tracks.find(t => t.id === selectedTrackId) || null;
+
+  const [units, setUnits] = useState<'metric' | 'imperial'>('metric');
+
+  const handleDeleteAll = useCallback(() => {
+    setTracks([]);
+    setSelectedTrackId(null);
+  }, []);
+
+  const handleExportAll = useCallback(() => {
+    if (tracks.length === 0) return;
+    
+    // Simple multi-track GPX generation
+    const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Studio Clone" xmlns="http://www.topografix.com/GPX/1/1">
+  ${tracks.map(track => `
+  <trk>
+    <name>${track.name}</name>
+    <trkseg>
+      ${track.points.map(p => `
+      <trkpt lat="${p.lat}" lon="${p.lng}">
+        ${p.ele ? `<ele>${p.ele}</ele>` : ''}
+        ${p.time ? `<time>${p.time.toISOString()}</time>` : ''}
+      </trkpt>`).join('')}
+    </trkseg>
+  </trk>`).join('')}
+</gpx>`;
+
+    const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `all_tracks.gpx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [tracks]);
+
+  // Hidden file input ref for TopNav "Open" action
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'o':
+            e.preventDefault();
+            fileInputRef.current?.click();
+            break;
+          case 'p':
+            e.preventDefault();
+            setShowElevation(prev => !prev);
+            break;
+          case 'l':
+            e.preventDefault();
+            setShowTrackList(prev => !prev);
+            break;
+          case 'backspace':
+            e.preventDefault();
+            if (e.shiftKey) {
+              handleDeleteAll();
+            }
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleDeleteAll]);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-100">
-      <TopNav />
-      <LeftToolbar onUpload={handleUpload} />
+      <input 
+        type="file" 
+        accept=".gpx" 
+        className="hidden" 
+        ref={fileInputRef} 
+        onChange={handleUpload} 
+      />
+      <TopNav 
+        onUpload={() => fileInputRef.current?.click()}
+        onDeleteAll={handleDeleteAll}
+        onExportAll={handleExportAll}
+        onToggleElevation={() => setShowElevation(!showElevation)}
+        showElevation={showElevation}
+        onToggleTrackList={() => setShowTrackList(!showTrackList)}
+        showTrackList={showTrackList}
+        units={units}
+        onToggleUnits={() => setUnits(units === 'metric' ? 'imperial' : 'metric')}
+      />
+      <LeftToolbar 
+        onUpload={handleUpload} 
+        onToggleTrackList={() => setShowTrackList(!showTrackList)}
+        trackCount={tracks.length}
+      />
       <RightToolbar />
       
+      {showTrackList && (
+        <TrackList 
+          tracks={tracks}
+          selectedTrackId={selectedTrackId}
+          onSelect={setSelectedTrackId}
+          onDelete={handleDelete}
+          onDownload={handleDownload}
+          onClose={() => setShowTrackList(false)}
+        />
+      )}
+
       <main className="absolute inset-0 flex flex-col">
         <div className="flex-1 relative">
           {tracks.length === 0 && (
