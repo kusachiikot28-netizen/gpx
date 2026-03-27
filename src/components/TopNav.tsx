@@ -15,8 +15,6 @@ interface TopNavProps {
   onExportAll: () => void;
   onToggleElevation: () => void;
   showElevation: boolean;
-  onToggleTrackList: () => void;
-  showTrackList: boolean;
   units: 'metric' | 'imperial';
   onToggleUnits: () => void;
 }
@@ -27,8 +25,6 @@ export const TopNav: React.FC<TopNavProps> = ({
   onExportAll, 
   onToggleElevation,
   showElevation,
-  onToggleTrackList,
-  showTrackList,
   units,
   onToggleUnits
 }) => {
@@ -142,7 +138,6 @@ export const TopNav: React.FC<TopNavProps> = ({
         {activeMenu === 'view' && (
           <Dropdown>
             <MenuItem active={showElevation} label="Elevation profile" shortcut="Ctrl P" onClick={onToggleElevation} />
-            <MenuItem active={showTrackList} label="File tree" shortcut="Ctrl L" onClick={onToggleTrackList} />
             <div className="h-[1px] bg-white/10 my-1" />
             <MenuItem icon={MapIcon} label="Switch to previous basemap" shortcut="F1" />
             <MenuItem icon={Layers} label="Toggle overlays" shortcut="F2" />

@@ -12,7 +12,7 @@ import { TopNav } from './components/TopNav';
 import { LeftToolbar } from './components/LeftToolbar';
 import { RightToolbar } from './components/RightToolbar';
 import { StatsPanel } from './components/StatsPanel';
-import { TrackList } from './components/TrackList';
+import { TrackTabs } from './components/TrackTabs';
 import { GPXTrack, GPXPoint } from './types';
 
 export default function App() {
@@ -20,7 +20,6 @@ export default function App() {
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [showElevation, setShowElevation] = useState(false);
-  const [showTrackList, setShowTrackList] = useState(false);
 
   const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,7 +150,7 @@ export default function App() {
             break;
           case 'l':
             e.preventDefault();
-            setShowTrackList(prev => !prev);
+            // Track list is now always visible as tabs
             break;
           case 'backspace':
             e.preventDefault();
@@ -182,31 +181,22 @@ export default function App() {
         onExportAll={handleExportAll}
         onToggleElevation={() => setShowElevation(!showElevation)}
         showElevation={showElevation}
-        onToggleTrackList={() => setShowTrackList(!showTrackList)}
-        showTrackList={showTrackList}
         units={units}
         onToggleUnits={() => setUnits(units === 'metric' ? 'imperial' : 'metric')}
       />
       <LeftToolbar 
         onUpload={handleUpload} 
-        onToggleTrackList={() => setShowTrackList(!showTrackList)}
-        trackCount={tracks.length}
       />
       <RightToolbar />
       
-      {showTrackList && (
-        <TrackList 
-          tracks={tracks}
-          selectedTrackId={selectedTrackId}
-          onSelect={setSelectedTrackId}
-          onDelete={handleDelete}
-          onDownload={handleDownload}
-          onClose={() => setShowTrackList(false)}
-        />
-      )}
-
       <main className="absolute inset-0 flex flex-col">
         <div className="flex-1 relative">
+          <TrackTabs 
+            tracks={tracks}
+            selectedTrackId={selectedTrackId}
+            onSelect={setSelectedTrackId}
+            onDelete={handleDelete}
+          />
           {tracks.length === 0 && (
             <div className="absolute inset-0 z-[1001] flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
               <div className="max-w-md text-center p-8 bg-[#1a1a1a] text-white rounded-2xl shadow-2xl border border-white/10">
