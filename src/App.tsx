@@ -13,13 +13,45 @@ import { LeftToolbar } from './components/LeftToolbar';
 import { RightToolbar } from './components/RightToolbar';
 import { StatsPanel } from './components/StatsPanel';
 import { TrackTabs } from './components/TrackTabs';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { GPXTrack, GPXPoint } from './types';
+import L from 'leaflet';
 
 export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
+}
+
+function AppContent() {
   const [tracks, setTracks] = useState<GPXTrack[]>([]);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [showElevation, setShowElevation] = useState(false);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+
+  const handleNewTrack = useCallback(() => {
+    const newTrack: GPXTrack = {
+      id: `new-${Date.now()}`,
+      name: `New file ${tracks.length + 1}`,
+      points: [],
+      distance: 0,
+      elevationGain: 0,
+      elevationLoss: 0
+    };
+    setTracks(prev => [...prev, newTrack]);
+    setSelectedTrackId(newTrack.id);
+  }, [tracks.length]);
+
+  const handleZoomIn = useCallback(() => {
+    mapInstance?.zoomIn();
+  }, [mapInstance]);
+
+  const handleZoomOut = useCallback(() => {
+    mapInstance?.zoomOut();
+  }, [mapInstance]);
 
   const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -176,6 +208,7 @@ export default function App() {
         onChange={handleUpload} 
       />
       <TopNav 
+        onNew={handleNewTrack}
         onUpload={() => fileInputRef.current?.click()}
         onDeleteAll={handleDeleteAll}
         onExportAll={handleExportAll}
@@ -187,7 +220,10 @@ export default function App() {
       <LeftToolbar 
         onUpload={handleUpload} 
       />
-      <RightToolbar />
+      <RightToolbar 
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+      />
       
       <main className="absolute inset-0 flex flex-col">
         <div className="flex-1 relative">
@@ -197,46 +233,29 @@ export default function App() {
             onSelect={setSelectedTrackId}
             onDelete={handleDelete}
           />
-          {tracks.length === 0 && (
-            <div className="absolute inset-0 z-[1001] flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
-              <div className="max-w-md text-center p-8 bg-[#1a1a1a] text-white rounded-2xl shadow-2xl border border-white/10">
-                <div className="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Upload size={32} />
-                </div>
-                <h2 className="text-2xl font-bold mb-4">GPX Studio</h2>
-                <p className="text-slate-400 mb-8 leading-relaxed">
-                  The online GPX file editor and viewer.
-                </p>
-                <label className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors font-medium">
-                  <Upload size={18} />
-                  <span>Open GPX</span>
-                  <input type="file" accept=".gpx" className="hidden" onChange={handleUpload} />
-                </label>
-              </div>
-            </div>
-          )}
           
           <Map 
             tracks={tracks}
             selectedTrackId={selectedTrackId}
             hoverPoint={hoverPoint}
+            onMapReady={setMapInstance}
           />
         </div>
         
         {selectedTrack && (
           <div className="relative z-[1000]">
-            <StatsPanel 
-              track={selectedTrack} 
-              onToggleElevation={() => setShowElevation(!showElevation)}
-            />
             {showElevation && (
-              <div className="absolute bottom-full left-0 right-0 bg-white shadow-2xl">
+              <div className="h-48 w-full bg-white shadow-2xl">
                 <ElevationProfile 
                   track={selectedTrack}
                   onHover={setHoverPoint}
                 />
               </div>
             )}
+            <StatsPanel 
+              track={selectedTrack} 
+              onToggleElevation={() => setShowElevation(!showElevation)}
+            />
           </div>
         )}
       </main>

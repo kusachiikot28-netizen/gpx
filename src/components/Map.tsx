@@ -23,6 +23,17 @@ interface MapProps {
   selectedTrackId: string | null;
   onPointHover?: (point: { lat: number; lng: number } | null) => void;
   hoverPoint?: { lat: number; lng: number } | null;
+  onMapReady?: (map: L.Map) => void;
+}
+
+function MapController({ onMapReady }: { onMapReady?: (map: L.Map) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (onMapReady) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
+  return null;
 }
 
 function ChangeView({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
@@ -35,7 +46,7 @@ function ChangeView({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
   return null;
 }
 
-export const Map: React.FC<MapProps> = ({ tracks, selectedTrackId, onPointHover, hoverPoint }) => {
+export const Map: React.FC<MapProps> = ({ tracks, selectedTrackId, onPointHover, hoverPoint, onMapReady }) => {
   const [bounds, setBounds] = useState<L.LatLngBoundsExpression | null>(null);
 
   useEffect(() => {
@@ -81,6 +92,7 @@ export const Map: React.FC<MapProps> = ({ tracks, selectedTrackId, onPointHover,
           </Marker>
         )}
         <ChangeView bounds={bounds} />
+        <MapController onMapReady={onMapReady} />
       </MapContainer>
     </div>
   );

@@ -11,7 +11,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ track, onToggleElevation
   if (!track) return null;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-black text-white p-6 flex flex-col gap-4 border-t border-white/10">
+    <div className="bg-black text-white p-6 flex flex-col gap-4 border-t border-white/10">
       <div className="flex items-start justify-between max-w-4xl mx-auto w-full">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">

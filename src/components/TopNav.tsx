@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation, Language } from '../contexts/LanguageContext';
 import { 
   Wand2, FileText, Edit3, Eye, Settings, BookOpen, Heart, 
   Plus, FolderOpen, Copy, Trash2, Download, Undo2, Redo2, 
@@ -10,6 +11,7 @@ import {
 import { cn } from '../lib/utils';
 
 interface TopNavProps {
+  onNew: () => void;
   onUpload: () => void;
   onDeleteAll: () => void;
   onExportAll: () => void;
@@ -20,6 +22,7 @@ interface TopNavProps {
 }
 
 export const TopNav: React.FC<TopNavProps> = ({ 
+  onNew,
   onUpload, 
   onDeleteAll, 
   onExportAll, 
@@ -28,6 +31,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   units,
   onToggleUnits
 }) => {
+  const { t, language, setLanguage } = useTranslation();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -83,21 +87,21 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="relative">
         <button 
           onClick={() => setActiveMenu(activeMenu === 'file' ? null : 'file')}
-          className={cn("p-2 hover:bg-white/10 rounded transition-colors", activeMenu === 'file' && "bg-white/10")}
+          className={cn("px-3 py-1 hover:bg-white/10 rounded transition-colors text-sm font-medium", activeMenu === 'file' && "bg-white/10")}
         >
-          <FileText size={20} />
+          {t('file')}
         </button>
         {activeMenu === 'file' && (
           <Dropdown>
-            <MenuItem icon={Plus} label="New" shortcut="Ctrl +" />
-            <MenuItem icon={FolderOpen} label="Open..." shortcut="Ctrl O" onClick={onUpload} />
-            <MenuItem icon={Copy} label="Duplicate" shortcut="Ctrl D" />
+            <MenuItem icon={Plus} label={t('new')} shortcut="Ctrl +" onClick={onNew} />
+            <MenuItem icon={FolderOpen} label={t('open')} shortcut="Ctrl O" onClick={onUpload} />
+            <MenuItem icon={Copy} label={t('duplicate')} shortcut="Ctrl D" />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Trash2} label="Delete" shortcut="Ctrl ⌫" />
-            <MenuItem icon={Trash2} label="Delete all" shortcut="⇧ Ctrl ⌫" onClick={onDeleteAll} />
+            <MenuItem icon={Trash2} label={t('delete')} shortcut="Ctrl ⌫" />
+            <MenuItem icon={Trash2} label={t('deleteAll')} shortcut="⇧ Ctrl ⌫" onClick={onDeleteAll} />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Download} label="Export..." shortcut="Ctrl S" />
-            <MenuItem icon={Download} label="Export all..." shortcut="⇧ Ctrl S" onClick={onExportAll} />
+            <MenuItem icon={Download} label={t('export')} shortcut="Ctrl S" />
+            <MenuItem icon={Download} label={t('exportAll')} shortcut="⇧ Ctrl S" onClick={onExportAll} />
           </Dropdown>
         )}
       </div>
@@ -106,23 +110,23 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="relative">
         <button 
           onClick={() => setActiveMenu(activeMenu === 'edit' ? null : 'edit')}
-          className={cn("p-2 hover:bg-white/10 rounded transition-colors", activeMenu === 'edit' && "bg-white/10")}
+          className={cn("px-3 py-1 hover:bg-white/10 rounded transition-colors text-sm font-medium", activeMenu === 'edit' && "bg-white/10")}
         >
-          <Edit3 size={20} />
+          {t('edit')}
         </button>
         {activeMenu === 'edit' && (
           <Dropdown>
-            <MenuItem icon={Undo2} label="Undo" shortcut="Ctrl Z" />
-            <MenuItem icon={Redo2} label="Redo" shortcut="⇧ Ctrl Z" />
+            <MenuItem icon={Undo2} label={t('undo')} shortcut="Ctrl Z" />
+            <MenuItem icon={Redo2} label={t('redo')} shortcut="⇧ Ctrl Z" />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Info} label="Info..." shortcut="Ctrl I" />
-            <MenuItem icon={Palette} label="Appearance..." />
-            <MenuItem icon={EyeOff} label="Unhide" shortcut="Ctrl H" />
+            <MenuItem icon={Info} label={t('info')} shortcut="Ctrl I" />
+            <MenuItem icon={Palette} label={t('appearance')} />
+            <MenuItem icon={EyeOff} label={t('unhide')} shortcut="Ctrl H" />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={MousePointer} label="Select all" shortcut="Ctrl A" />
-            <MenuItem icon={Target} label="Center" shortcut="Ctrl ↵" />
+            <MenuItem icon={MousePointer} label={t('selectAll')} shortcut="Ctrl A" />
+            <MenuItem icon={Target} label={t('center')} shortcut="Ctrl ↵" />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Trash2} label="Delete" shortcut="Ctrl ⌫" color="text-red-400" />
+            <MenuItem icon={Trash2} label={t('delete')} shortcut="Ctrl ⌫" color="text-red-400" />
           </Dropdown>
         )}
       </div>
@@ -131,13 +135,13 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="relative">
         <button 
           onClick={() => setActiveMenu(activeMenu === 'view' ? null : 'view')}
-          className={cn("p-2 hover:bg-white/10 rounded transition-colors", activeMenu === 'view' && "bg-white/10")}
+          className={cn("px-3 py-1 hover:bg-white/10 rounded transition-colors text-sm font-medium", activeMenu === 'view' && "bg-white/10")}
         >
-          <Eye size={20} />
+          {t('view')}
         </button>
         {activeMenu === 'view' && (
           <Dropdown>
-            <MenuItem active={showElevation} label="Elevation profile" shortcut="Ctrl P" onClick={onToggleElevation} />
+            <MenuItem active={showElevation} label={t('elevationProfile')} shortcut="Ctrl P" onClick={onToggleElevation} />
             <div className="h-[1px] bg-white/10 my-1" />
             <MenuItem icon={MapIcon} label="Switch to previous basemap" shortcut="F1" />
             <MenuItem icon={Layers} label="Toggle overlays" shortcut="F2" />
@@ -154,25 +158,33 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="relative">
         <button 
           onClick={() => setActiveMenu(activeMenu === 'settings' ? null : 'settings')}
-          className={cn("p-2 hover:bg-white/10 rounded transition-colors", activeMenu === 'settings' && "bg-white/10")}
+          className={cn("px-3 py-1 hover:bg-white/10 rounded transition-colors text-sm font-medium", activeMenu === 'settings' && "bg-white/10")}
         >
-          <Settings size={20} />
+          {t('settings')}
         </button>
         {activeMenu === 'settings' && (
           <Dropdown>
             <MenuItem 
               icon={RulerIcon} 
-              label={`Distance units (${units === 'metric' ? 'Metric' : 'Imperial'})`} 
+              label={`${t('distanceUnits')} (${units === 'metric' ? 'Metric' : 'Imperial'})`} 
               onClick={onToggleUnits}
             />
-            <MenuItem icon={Zap} label="Velocity units" hasSubmenu />
-            <MenuItem icon={Thermometer} label="Temperature units" hasSubmenu />
+            <MenuItem icon={Zap} label={t('velocityUnits')} hasSubmenu />
+            <MenuItem icon={Thermometer} label={t('temperatureUnits')} hasSubmenu />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Languages} label="Language" hasSubmenu />
-            <MenuItem icon={Moon} label="Theme" hasSubmenu />
+            <div className="relative group/lang">
+              <MenuItem icon={Languages} label={t('language')} hasSubmenu />
+              <div className="absolute left-full top-0 ml-1 hidden group-hover/lang:block min-w-[150px] bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl p-1">
+                <MenuItem active={language === 'en'} label="English" onClick={() => setLanguage('en')} />
+                <MenuItem active={language === 'de'} label="Deutsch" onClick={() => setLanguage('de')} />
+                <MenuItem active={language === 'fr'} label="Français" onClick={() => setLanguage('fr')} />
+                <MenuItem active={language === 'ru'} label="Русский" onClick={() => setLanguage('ru')} />
+              </div>
+            </div>
+            <MenuItem icon={Moon} label={t('theme')} hasSubmenu />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={User} label="Street view source" hasSubmenu />
-            <MenuItem icon={Layers} label="Map layers..." />
+            <MenuItem icon={User} label={t('streetView')} hasSubmenu />
+            <MenuItem icon={Layers} label={t('mapLayers')} />
           </Dropdown>
         )}
       </div>
