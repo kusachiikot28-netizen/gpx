@@ -17,6 +17,8 @@ interface TopNavProps {
   onExportAll: () => void;
   onToggleElevation: () => void;
   showElevation: boolean;
+  elevationMode: 'elevation' | 'slope';
+  onSetElevationMode: (mode: 'elevation' | 'slope') => void;
   units: 'metric' | 'imperial';
   onToggleUnits: () => void;
 }
@@ -28,6 +30,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   onExportAll, 
   onToggleElevation,
   showElevation,
+  elevationMode,
+  onSetElevationMode,
   units,
   onToggleUnits
 }) => {
@@ -83,15 +87,19 @@ export const TopNav: React.FC<TopNavProps> = ({
   );
 
   return (
-    <div ref={menuRef} className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center bg-[#1a1a1a] text-white rounded-lg shadow-2xl px-1 sm:px-2 py-1 gap-0.5 sm:gap-1 border border-white/10 max-w-[95vw] overflow-x-auto no-scrollbar">
-      <button className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors text-red-400 shrink-0"><Wand2 size={18} className="sm:w-5 sm:h-5" /></button>
+    <div ref={menuRef} className="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center bg-[#1a1a1a] text-white rounded-lg shadow-2xl px-1 sm:px-2 py-1 gap-0.5 sm:gap-1 border border-white/10 max-w-[98vw] w-max">
+      <button type="button" className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors text-red-400 shrink-0"><Wand2 size={18} className="sm:w-5 sm:h-5" /></button>
       <div className="w-[1px] h-5 sm:h-6 bg-white/10 mx-0.5 sm:mx-1 shrink-0" />
       
       {/* File Menu */}
       <div className="relative">
         <button 
-          onClick={() => setActiveMenu(activeMenu === 'file' ? null : 'file')}
-          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap", activeMenu === 'file' && "bg-white/10")}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveMenu(activeMenu === 'file' ? null : 'file');
+          }}
+          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap cursor-pointer", activeMenu === 'file' && "bg-white/10")}
         >
           {t('file')}
         </button>
@@ -113,8 +121,12 @@ export const TopNav: React.FC<TopNavProps> = ({
       {/* Edit Menu */}
       <div className="relative">
         <button 
-          onClick={() => setActiveMenu(activeMenu === 'edit' ? null : 'edit')}
-          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap", activeMenu === 'edit' && "bg-white/10")}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveMenu(activeMenu === 'edit' ? null : 'edit');
+          }}
+          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap cursor-pointer", activeMenu === 'edit' && "bg-white/10")}
         >
           {t('edit')}
         </button>
@@ -138,14 +150,36 @@ export const TopNav: React.FC<TopNavProps> = ({
       {/* View Menu */}
       <div className="relative">
         <button 
-          onClick={() => setActiveMenu(activeMenu === 'view' ? null : 'view')}
-          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap", activeMenu === 'view' && "bg-white/10")}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveMenu(activeMenu === 'view' ? null : 'view');
+          }}
+          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap cursor-pointer", activeMenu === 'view' && "bg-white/10")}
         >
           {t('view')}
         </button>
         {activeMenu === 'view' && (
           <Dropdown>
             <MenuItem active={showElevation} label={t('elevationProfile')} shortcut="Ctrl P" onClick={onToggleElevation} />
+            <div className="pl-8 space-y-1 mt-1">
+              <button 
+                type="button" 
+                onClick={() => { onSetElevationMode('elevation'); setActiveMenu(null); }} 
+                className={cn("text-xs flex items-center gap-2 py-1 w-full text-left", elevationMode === 'elevation' ? "text-blue-400" : "text-white/60")}
+              >
+                {elevationMode === 'elevation' && <Check size={12} />}
+                {t('elevation')}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => { onSetElevationMode('slope'); setActiveMenu(null); }} 
+                className={cn("text-xs flex items-center gap-2 py-1 w-full text-left", elevationMode === 'slope' ? "text-blue-400" : "text-white/60")}
+              >
+                {elevationMode === 'slope' && <Check size={12} />}
+                {t('slope')}
+              </button>
+            </div>
             <div className="h-[1px] bg-white/10 my-1" />
             <MenuItem icon={MapIcon} label={t('previousBasemap')} shortcut="F1" />
             <MenuItem icon={Layers} label={t('toggleOverlays')} shortcut="F2" />
@@ -161,8 +195,12 @@ export const TopNav: React.FC<TopNavProps> = ({
       {/* Settings Menu */}
       <div className="relative">
         <button 
-          onClick={() => setActiveMenu(activeMenu === 'settings' ? null : 'settings')}
-          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap", activeMenu === 'settings' && "bg-white/10")}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveMenu(activeMenu === 'settings' ? null : 'settings');
+          }}
+          className={cn("px-2 sm:px-3 py-1 hover:bg-white/10 rounded transition-colors text-xs sm:text-sm font-medium whitespace-nowrap cursor-pointer", activeMenu === 'settings' && "bg-white/10")}
         >
           {t('settings')}
         </button>
@@ -186,10 +224,10 @@ export const TopNav: React.FC<TopNavProps> = ({
               </div>
               {/* Mobile language list - simplified for now */}
               <div className="sm:hidden pl-8 space-y-1 mt-1">
-                <button onClick={() => setLanguage('en')} className={cn("text-xs block py-1", language === 'en' ? "text-blue-400" : "text-white/60")}>English</button>
-                <button onClick={() => setLanguage('de')} className={cn("text-xs block py-1", language === 'de' ? "text-blue-400" : "text-white/60")}>Deutsch</button>
-                <button onClick={() => setLanguage('fr')} className={cn("text-xs block py-1", language === 'fr' ? "text-blue-400" : "text-white/60")}>Français</button>
-                <button onClick={() => setLanguage('ru')} className={cn("text-xs block py-1", language === 'ru' ? "text-blue-400" : "text-white/60")}>Русский</button>
+                <button type="button" onClick={() => { setLanguage('en'); setActiveMenu(null); }} className={cn("text-xs block py-1 w-full text-left", language === 'en' ? "text-blue-400" : "text-white/60")}>English</button>
+                <button type="button" onClick={() => { setLanguage('de'); setActiveMenu(null); }} className={cn("text-xs block py-1 w-full text-left", language === 'de' ? "text-blue-400" : "text-white/60")}>Deutsch</button>
+                <button type="button" onClick={() => { setLanguage('fr'); setActiveMenu(null); }} className={cn("text-xs block py-1 w-full text-left", language === 'fr' ? "text-blue-400" : "text-white/60")}>Français</button>
+                <button type="button" onClick={() => { setLanguage('ru'); setActiveMenu(null); }} className={cn("text-xs block py-1 w-full text-left", language === 'ru' ? "text-blue-400" : "text-white/60")}>Русский</button>
               </div>
             </div>
             <MenuItem icon={Moon} label={t('theme')} hasSubmenu />
@@ -200,8 +238,8 @@ export const TopNav: React.FC<TopNavProps> = ({
         )}
       </div>
 
-      <button className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors shrink-0"><BookOpen size={18} className="sm:w-5 sm:h-5" /></button>
-      <button className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors text-pink-400 shrink-0"><Heart size={18} className="sm:w-5 sm:h-5" /></button>
+      <button type="button" className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors shrink-0"><BookOpen size={18} className="sm:w-5 sm:h-5" /></button>
+      <button type="button" className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors text-pink-400 shrink-0"><Heart size={18} className="sm:w-5 sm:h-5" /></button>
     </div>
   );
 };

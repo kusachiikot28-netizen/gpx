@@ -1,23 +1,42 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../contexts/LanguageContext';
 import { 
   ArrowUpRight, ArrowDownRight, MoveRight, 
-  Clock, Zap, BarChart2
+  Clock, Zap, BarChart2, Check, Mountain, Layers,
+  Activity, Heart, Thermometer, Box
 } from 'lucide-react';
 import { GPXTrack } from '../types';
+import { cn } from '../lib/utils';
 
 interface StatsPanelProps {
   track: GPXTrack | null;
   onToggleElevation: () => void;
   isMetric?: boolean;
+  elevationMode: 'elevation' | 'slope';
+  onSetElevationMode: (mode: 'elevation' | 'slope') => void;
 }
 
 export const StatsPanel: React.FC<StatsPanelProps> = ({ 
   track, 
   onToggleElevation,
-  isMetric = true
+  isMetric = true,
+  elevationMode,
+  onSetElevationMode
 }) => {
   const { t } = useTranslation();
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!track) return null;
 
   const distUnit = isMetric ? 'km' : 'mi';
@@ -40,8 +59,21 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
     </div>
   );
 
+  const MenuItem = ({ icon: Icon, label, active, onClick, checkable = false }: any) => (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/10 text-xs text-white transition-colors"
+    >
+      <div className="w-4 flex items-center justify-center shrink-0">
+        {checkable ? (active && <Check size={14} className="text-blue-400" />) : (Icon && <Icon size={14} className="text-white/60" />)}
+      </div>
+      <span className="flex-1 text-left">{label}</span>
+      {!checkable && active && <Check size={14} className="text-blue-400" />}
+    </button>
+  );
+
   return (
-    <div className="flex flex-wrap items-center gap-4 sm:gap-8 px-4 py-3 bg-[#0a0a0a] text-white border-t border-white/10">
+    <div className="flex flex-wrap items-center gap-4 sm:gap-8 px-4 py-3 bg-[#0a0a0a] text-white border-t border-white/10 relative">
       <StatItem 
         icon={MoveRight} 
         label={t('distance')} 
@@ -75,13 +107,43 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
       
       <div className="flex-1" />
       
-      <button 
-        onClick={onToggleElevation}
-        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
-        title={t('elevationProfile')}
-      >
-        <BarChart2 size={20} />
-      </button>
+      <div className="relative" ref={menuRef}>
+        <button 
+          onClick={() => setShowMenu(!showMenu)}
+          className={cn(
+            "p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors",
+            showMenu && "bg-white/10"
+          )}
+          title={t('elevationProfile')}
+        >
+          <BarChart2 size={20} />
+        </button>
+
+        {showMenu && (
+          <div className="absolute right-0 bottom-full mb-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl py-1 z-[1002]">
+            <MenuItem 
+              icon={Mountain} 
+              label={t('elevation')} 
+              active={elevationMode === 'elevation'} 
+              onClick={() => { onSetElevationMode('elevation'); setShowMenu(false); }} 
+            />
+            <MenuItem 
+              icon={BarChart2} 
+              label={t('slope')} 
+              active={elevationMode === 'slope'} 
+              onClick={() => { onSetElevationMode('slope'); setShowMenu(false); }} 
+            />
+            <MenuItem icon={Layers} label={t('surface')} />
+            <MenuItem icon={Box} label={t('category')} />
+            <div className="h-[1px] bg-white/10 my-1" />
+            <MenuItem checkable active label={t('speed')} />
+            <MenuItem checkable active label={t('heartRate')} />
+            <MenuItem checkable active label={t('cadence')} />
+            <MenuItem checkable active label={t('temperature')} />
+            <MenuItem checkable active label={t('power')} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

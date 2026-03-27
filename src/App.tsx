@@ -29,7 +29,8 @@ function AppContent() {
   const [tracks, setTracks] = useState<GPXTrack[]>([]);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [showElevation, setShowElevation] = useState(false);
+  const [showElevation, setShowElevation] = useState(true);
+  const [elevationMode, setElevationMode] = useState<'elevation' | 'slope'>('elevation');
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
   const handleNewTrack = useCallback(() => {
@@ -214,6 +215,8 @@ function AppContent() {
         onExportAll={handleExportAll}
         onToggleElevation={() => setShowElevation(!showElevation)}
         showElevation={showElevation}
+        elevationMode={elevationMode}
+        onSetElevationMode={setElevationMode}
         units={units}
         onToggleUnits={() => setUnits(units === 'metric' ? 'imperial' : 'metric')}
       />
@@ -239,17 +242,19 @@ function AppContent() {
             selectedTrackId={selectedTrackId}
             hoverPoint={hoverPoint}
             onMapReady={setMapInstance}
+            elevationMode={elevationMode}
           />
         </div>
         
         {selectedTrack && (
           <div className="relative z-[1000]">
             {showElevation && (
-              <div className="h-48 w-full bg-white shadow-2xl">
+              <div className="h-40 sm:h-56 w-full shadow-2xl">
                 <ElevationProfile 
                   track={selectedTrack}
                   onHover={setHoverPoint}
                   units={units}
+                  mode={elevationMode}
                 />
               </div>
             )}
@@ -257,6 +262,8 @@ function AppContent() {
               track={selectedTrack} 
               onToggleElevation={() => setShowElevation(!showElevation)}
               isMetric={units === 'metric'}
+              elevationMode={elevationMode}
+              onSetElevationMode={setElevationMode}
             />
           </div>
         )}

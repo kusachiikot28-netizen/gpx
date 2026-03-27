@@ -24,9 +24,9 @@ const Panel: React.FC<PanelProps> = ({ title, onClose, children, footer }) => {
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -10 }}
-      className="absolute left-14 top-0 w-[calc(100vw-80px)] sm:w-80 bg-[#0a0a0a] text-white rounded-lg shadow-2xl border border-white/10 overflow-hidden z-[1001]"
+      className="absolute left-12 sm:left-14 top-[-50px] sm:top-0 w-[calc(100vw-60px)] sm:w-80 bg-[#0a0a0a] text-white rounded-lg shadow-2xl border border-white/10 overflow-hidden z-[1001] max-h-[80vh] flex flex-col"
     >
-      <div className="flex items-center justify-between p-3 border-bottom border-white/5 bg-white/5">
+      <div className="flex items-center justify-between p-3 border-b border-white/5 bg-white/5 shrink-0">
         <div className="flex items-center gap-2 font-medium text-sm">
           {title}
         </div>
@@ -34,11 +34,11 @@ const Panel: React.FC<PanelProps> = ({ title, onClose, children, footer }) => {
           <X size={16} />
         </button>
       </div>
-      <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+      <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar flex-1">
         {children}
       </div>
       {footer && (
-        <div className="p-3 bg-white/5 border-t border-white/5 flex gap-3 items-start relative">
+        <div className="p-3 bg-white/5 border-t border-white/5 flex gap-3 items-start relative shrink-0">
           <HelpCircle size={16} className="text-white/40 shrink-0 mt-0.5" />
           <div className="text-xs text-white/60 leading-relaxed pr-6">
             {footer} <a href="#" className="text-blue-400 hover:underline">{t('more')}</a>
