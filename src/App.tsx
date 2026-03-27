@@ -249,12 +249,14 @@ function AppContent() {
                 <ElevationProfile 
                   track={selectedTrack}
                   onHover={setHoverPoint}
+                  units={units}
                 />
               </div>
             )}
             <StatsPanel 
               track={selectedTrack} 
               onToggleElevation={() => setShowElevation(!showElevation)}
+              isMetric={units === 'metric'}
             />
           </div>
         )}
