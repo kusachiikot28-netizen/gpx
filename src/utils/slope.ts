@@ -113,3 +113,27 @@ export function getSlopeColor(slope: number): string {
   if (slope <= 10) return '#dc2626';   // +5...+10: Red
   return '#7f1d1d';                    // > 10: Dark Red
 }
+
+/**
+ * Calculates total distance, elevation gain and loss for a set of points.
+ */
+export function calculateTrackStats(points: GPXPoint[]) {
+  if (points.length < 2) return { distance: 0, elevationGain: 0, elevationLoss: 0 };
+
+  let distance = 0;
+  let elevationGain = 0;
+  let elevationLoss = 0;
+
+  for (let i = 1; i < points.length; i++) {
+    const p1 = points[i - 1];
+    const p2 = points[i];
+    
+    distance += getDistance(p1.lat, p1.lng, p2.lat, p2.lng);
+    
+    const dEle = (p2.ele || 0) - (p1.ele || 0);
+    if (dEle > 0) elevationGain += dEle;
+    else elevationLoss += Math.abs(dEle);
+  }
+
+  return { distance, elevationGain, elevationLoss };
+}

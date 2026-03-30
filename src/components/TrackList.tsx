@@ -12,7 +12,7 @@ interface TrackListProps {
   onClose: () => void;
 }
 
-export const TrackList: React.FC<TrackListProps> = ({ 
+export const TrackList: React.FC<TrackListProps> = React.memo(({ 
   tracks, 
   selectedTrackId, 
   onSelect, 
@@ -76,4 +76,4 @@ export const TrackList: React.FC<TrackListProps> = ({
       </div>
     </div>
   );
-};
+});

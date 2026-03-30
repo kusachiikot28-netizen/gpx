@@ -6,18 +6,23 @@ import {
   HelpCircle, ExternalLink, X, Calendar, 
   Clock, Zap, Trash2, Mountain, Filter,
   MousePointer2, Scissors, Maximize, Layers,
-  MapPin, Edit2
+  MapPin, Edit2, Minimize2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+
+import { useRouting, ActivityType } from '../contexts/RoutingContext';
+import { getRoute } from '../services/routingService';
+import { GPXTrack, GPXPoint } from '../types';
 
 interface PanelProps {
   title: string;
   onClose: () => void;
+  onMinimize?: () => void;
   children: React.ReactNode;
   footer?: string;
 }
 
-const Panel: React.FC<PanelProps> = ({ title, onClose, children, footer }) => {
+const Panel: React.FC<PanelProps> = ({ title, onClose, onMinimize, children, footer }) => {
   const { t } = useTranslation();
   return (
     <motion.div 
@@ -40,68 +45,192 @@ const Panel: React.FC<PanelProps> = ({ title, onClose, children, footer }) => {
       {footer && (
         <div className="p-3 bg-white/5 border-t border-white/5 flex gap-3 items-start relative shrink-0">
           <HelpCircle size={16} className="text-white/40 shrink-0 mt-0.5" />
-          <div className="text-xs text-white/60 leading-relaxed pr-6">
+          <div className="text-xs text-white/60 leading-relaxed pr-10">
             {footer} <a href="#" className="text-blue-400 hover:underline">{t('more')}</a>
           </div>
-          <ExternalLink size={14} className="absolute right-3 bottom-3 text-white/40" />
+          {onMinimize ? (
+            <button 
+              onClick={onMinimize}
+              className="absolute right-3 bottom-3 p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded transition-colors text-white/60"
+              title={t('minimize')}
+            >
+              <Minimize2 size={14} />
+            </button>
+          ) : (
+            <ExternalLink size={14} className="absolute right-3 bottom-3 text-white/40" />
+          )}
         </div>
       )}
     </motion.div>
   );
 };
 
-export const RoutingPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const RoutingPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
+  const { 
+    setIsEditMode, 
+    isRoutingEnabled, setIsRoutingEnabled,
+    isMinimized, setIsMinimized,
+    activity, setActivity, 
+    waypoints, trackPoints, clearWaypoints, removeLastWaypoint,
+    reverseWaypoints, backToStart, roundTrip,
+    isCalculating, setIsCalculating,
+    hasSelection
+  } = useRouting();
+
+  if (isMinimized) return null;
+
   return (
     <Panel 
       title={t('routing')} 
       onClose={onClose}
+      onMinimize={() => setIsMinimized(true)}
       footer={t('routingFooter')}
     >
+      {!hasSelection && (
+        <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] text-amber-200/80 mb-4">
+          {t('noTrackSelectedRouting')}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <Activity size={16} /> {t('routing')}
+          {isCalculating && (
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ repeat: Infinity, duration: 1, ease: "linear" }} 
+              className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full" 
+            />
+          )}
         </div>
-        <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
-          <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" />
+        <div 
+          onClick={() => setIsRoutingEnabled(!isRoutingEnabled)}
+          className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", isRoutingEnabled ? "bg-blue-600" : "bg-white/10")}
+        >
+          <motion.div 
+            animate={{ x: isRoutingEnabled ? 20 : 0 }}
+            className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full" 
+          />
         </div>
       </div>
       
       <div className="space-y-2">
         <label className="text-xs text-white/40 uppercase font-bold tracking-wider">{t('activity')}</label>
-        <select className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500">
-          <option>{t('bike')}</option>
-          <option>{t('foot')}</option>
-          <option>{t('car')}</option>
+        <select 
+          value={activity}
+          onChange={(e) => setActivity(e.target.value as ActivityType)}
+          className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500"
+        >
+          <option value="run">{t('run')}</option>
+          <option value="road_bike">{t('roadBike')}</option>
+          <option value="gravel_bike">{t('gravelBike')}</option>
+          <option value="mountain_bike">{t('mountainBike')}</option>
+          <option value="motorcycle">{t('motorcycle')}</option>
         </select>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-white/80">
-          <Zap size={16} className="text-white/40" /> {t('allowPrivate')}
-        </div>
-        <div className="w-10 h-5 bg-white/10 rounded-full relative cursor-pointer">
-          <div className="absolute left-1 top-1 w-3 h-3 bg-white/40 rounded-full" />
-        </div>
-      </div>
-
       <div className="grid grid-cols-3 gap-2">
-        <button className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors">
+        <button 
+          onClick={reverseWaypoints}
+          disabled={waypoints.length < 2 || isCalculating}
+          className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors disabled:opacity-30"
+          title={t('reverse')}
+        >
           <ArrowLeftRight size={14} /> {t('reverse')}
         </button>
-        <button className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors">
+        <button 
+          onClick={backToStart}
+          disabled={waypoints.length < 2 || isCalculating}
+          className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors disabled:opacity-30"
+          title={t('backToStart')}
+        >
           <Home size={14} /> {t('backToStart')}
         </button>
-        <button className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors">
+        <button 
+          onClick={roundTrip}
+          disabled={waypoints.length < 2 || isCalculating}
+          className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors disabled:opacity-30"
+          title={t('roundTrip')}
+        >
           <RotateCcw size={14} /> {t('roundTrip')}
         </button>
       </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button 
+          onClick={clearWaypoints}
+          disabled={waypoints.length === 0 || isCalculating}
+          className="flex flex-col items-center gap-1 p-2 bg-white/5 hover:bg-white/10 rounded text-[10px] transition-colors disabled:opacity-30"
+        >
+          <Trash2 size={14} /> {t('clear')}
+        </button>
+      </div>
+
+      {waypoints.length > 0 && (
+        <div className="pt-2 border-t border-white/5">
+          <div className="text-[10px] text-white/40 uppercase font-bold tracking-wider mb-2">{t('waypoints')} ({waypoints.length})</div>
+          <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+            {waypoints.map((wp, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-[10px] text-white/60 bg-white/5 p-1 rounded">
+                <MapPin size={10} />
+                <span>{wp.lat.toFixed(4)}, {wp.lng.toFixed(4)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Panel>
   );
-};
+});
 
-export const POIPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const POIPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
+  const { addPOI, pois, removePOI, setOnMapClick, hasSelection } = useRouting();
+  const [name, setName] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [lat, setLat] = React.useState<number | null>(null);
+  const [lng, setLng] = React.useState<number | null>(null);
+  const [icon, setIcon] = React.useState('MapPin');
+  const [link, setLink] = React.useState('');
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setOnMapClick(() => (lat: number, lng: number) => {
+      setLat(lat);
+      setLng(lng);
+      setError(null);
+    });
+    return () => setOnMapClick(null);
+  }, [setOnMapClick]);
+
+  const handleCreate = () => {
+    if (!name) {
+      setError(t('nameRequired'));
+      return;
+    }
+    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) {
+      setError(t('locationRequired'));
+      return;
+    }
+    
+    addPOI({
+      id: Math.random().toString(36).substr(2, 9),
+      name,
+      description,
+      lat,
+      lng,
+      icon,
+      link
+    });
+    setName('');
+    setDescription('');
+    setLink('');
+    setLat(null);
+    setLng(null);
+    setError(null);
+    // Show success briefly or just rely on the list update
+  };
+
   return (
     <Panel 
       title={t('poi')} 
@@ -109,48 +238,125 @@ export const POIPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       footer={t('poiFooter')}
     >
       <div className="space-y-3">
+        {!hasSelection && (
+          <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] text-amber-200/80 mb-2">
+            {t('noTrackSelectedPOI')}
+          </div>
+        )}
+
+        {hasSelection && (
+          <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-200/80 mb-2">
+            {t('clickMapToSetLocation')}
+          </div>
+        )}
+
+        {error && (
+          <div className="p-2 bg-red-500/10 border border-red-500/20 rounded text-[10px] text-red-400 mb-2">
+            {error}
+          </div>
+        )}
+
         <div className="space-y-1">
           <label className="text-xs text-white/40">{t('name')}</label>
-          <input className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" />
+          <input 
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" 
+          />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-white/40">{t('description')}</label>
-          <textarea className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500 h-20 resize-none" />
+          <textarea 
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500 h-20 resize-none" 
+          />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-white/40">{t('icon')}</label>
-          <select className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500">
-            <option></option>
+          <select 
+            value={icon}
+            onChange={(e) => setIcon(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500"
+          >
+            <option value="MapPin">MapPin</option>
+            <option value="Home">Home</option>
+            <option value="Flag">Flag</option>
+            <option value="Star">Star</option>
+            <option value="Camera">Camera</option>
+            <option value="Info">Info</option>
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-xs text-white/40">{t('link')}</label>
-          <input className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" />
+          <input 
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" 
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-xs text-white/40">{t('latitude')}</label>
-            <input type="number" defaultValue="0" className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" />
+            <input 
+              type="number" 
+              value={lat ?? ''}
+              placeholder="0.0000"
+              onChange={(e) => setLat(parseFloat(e.target.value))}
+              className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" 
+            />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-white/40">{t('longitude')}</label>
-            <input type="number" defaultValue="0" className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" />
+            <input 
+              type="number" 
+              value={lng ?? ''}
+              placeholder="0.0000"
+              onChange={(e) => setLng(parseFloat(e.target.value))}
+              className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" 
+            />
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-sm transition-colors flex items-center justify-center gap-2">
+          <button 
+            onClick={handleCreate}
+            disabled={!hasSelection}
+            className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 rounded text-sm transition-colors flex items-center justify-center gap-2"
+          >
             <MapPin size={16} /> {t('createPoi')}
           </button>
-          <button className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded transition-colors">
-            <X size={16} />
-          </button>
         </div>
+
+        {pois.length > 0 && (
+          <div className="pt-4 border-t border-white/5 space-y-2">
+            <label className="text-xs text-white/40 uppercase font-bold tracking-wider">{t('poiList')} ({pois.length})</label>
+            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+              {pois.map(poi => (
+                <div key={poi.id} className="flex items-center justify-between bg-white/5 p-2 rounded group">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <MapPin size={14} className="text-blue-400 shrink-0" />
+                    <div className="truncate">
+                      <div className="text-xs font-medium truncate">{poi.name}</div>
+                      <div className="text-[10px] text-white/40 truncate">{poi.lat.toFixed(4)}, {poi.lng.toFixed(4)}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => removePOI(poi.id)}
+                    className="p-1 hover:bg-red-500/20 text-white/20 hover:text-red-500 rounded transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Panel>
   );
-};
+});
 
-export const EditPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const EditPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -184,9 +390,9 @@ export const EditPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       </div>
     </Panel>
   );
-};
+});
 
-export const TimePanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const TimePanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -250,9 +456,9 @@ export const TimePanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       </div>
     </Panel>
   );
-};
+});
 
-export const MergePanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const MergePanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -280,9 +486,9 @@ export const MergePanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       </div>
     </Panel>
   );
-};
+});
 
-export const ExtractPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const ExtractPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -295,9 +501,9 @@ export const ExtractPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => 
       </button>
     </Panel>
   );
-};
+});
 
-export const ElevationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const ElevationPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -310,9 +516,9 @@ export const ElevationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =
       </button>
     </Panel>
   );
-};
+});
 
-export const FilterPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const FilterPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -342,9 +548,9 @@ export const FilterPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       </div>
     </Panel>
   );
-};
+});
 
-export const CleanPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const CleanPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
   const { t } = useTranslation();
   return (
     <Panel 
@@ -383,4 +589,4 @@ export const CleanPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       </div>
     </Panel>
   );
-};
+});

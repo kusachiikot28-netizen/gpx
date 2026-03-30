@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Edit2, MapPin, Scissors, Clock, Maximize, 
-  Layers, Mountain, Filter, MousePointer2, Upload 
+  Layers, Mountain, Filter, MousePointer2, Upload,
+  Maximize2, Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -11,26 +12,52 @@ import {
   MergePanel, ExtractPanel, ElevationPanel, FilterPanel, CleanPanel 
 } from './ToolbarPanels';
 
+import { GPXTrack } from '../types';
+import { useRouting } from '../contexts/RoutingContext';
+
 interface LeftToolbarProps {
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAddTrack: (track: GPXTrack) => void;
+  onNew: () => void;
 }
 
 type ActivePanel = 'routing' | 'poi' | 'edit' | 'time' | 'merge' | 'extract' | 'elevation' | 'filter' | 'clean' | null;
 
-export const LeftToolbar: React.FC<LeftToolbarProps> = ({ onUpload }) => {
+export const LeftToolbar: React.FC<LeftToolbarProps> = React.memo(({ onUpload, onAddTrack, onNew }) => {
   const { t } = useTranslation();
-  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+  const { isMinimized, setIsMinimized, isEditMode, setIsEditMode, activePanel, setActivePanel } = useRouting();
 
-  const togglePanel = (panel: ActivePanel) => {
-    setActivePanel(activePanel === panel ? null : panel);
+  const togglePanel = (panel: string) => {
+    if (panel === 'routing') {
+      if (isMinimized) {
+        setIsMinimized(false);
+      }
+      const newEditMode = !isEditMode;
+      setIsEditMode(newEditMode);
+      setActivePanel(newEditMode ? 'routing' : null);
+    } else {
+      setActivePanel(activePanel === panel ? null : panel);
+    }
   };
 
   return (
-    <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-1">
+    <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-[1000] flex items-start gap-2">
       <div className="flex flex-col bg-[#1a1a1a] text-white rounded-lg shadow-2xl p-0.5 sm:p-1 gap-0.5 sm:gap-1 border border-white/10">
         <button 
+          onClick={onNew}
+          className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors text-blue-400"
+          title={t('new')}
+        >
+          <Plus size={18} className="sm:w-5 sm:h-5" />
+        </button>
+        <div className="w-full h-[1px] bg-white/10 my-0.5 sm:my-1" />
+        <button 
           onClick={() => togglePanel('routing')}
-          className={cn("p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors", activePanel === 'routing' && "bg-blue-600 hover:bg-blue-700")}
+          className={cn(
+            "p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors", 
+            activePanel === 'routing' && !isMinimized && "bg-blue-600 hover:bg-blue-700",
+            isEditMode && "relative after:absolute after:top-1 after:right-1 after:w-1.5 after:h-1.5 after:bg-blue-500 after:rounded-full"
+          )}
           title={t('routing')}
         >
           <Edit2 size={18} className="sm:w-5 sm:h-5" />
@@ -86,14 +113,30 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({ onUpload }) => {
           <MousePointer2 size={18} className="sm:w-5 sm:h-5" />
         </button>
         <div className="w-full h-[1px] bg-white/10 my-0.5 sm:my-1" />
-        <label className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors cursor-pointer" title={t('open')}>
+        <button 
+          onClick={onUpload}
+          className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors cursor-pointer" 
+          title={t('open')}
+        >
           <Upload size={18} className="sm:w-5 sm:h-5" />
-          <input type="file" accept=".gpx" className="hidden" onChange={onUpload} />
-        </label>
+        </button>
       </div>
 
+      {isEditMode && isMinimized && (
+        <button 
+          onClick={() => {
+            setIsMinimized(false);
+            setActivePanel('routing');
+          }}
+          className="p-1.5 sm:p-2 bg-[#1a1a1a] text-white rounded-lg shadow-2xl border border-white/10 hover:bg-white/10 transition-colors"
+          title={t('expand')}
+        >
+          <Maximize2 size={18} className="sm:w-5 sm:h-5" />
+        </button>
+      )}
+
       <AnimatePresence>
-        {activePanel === 'routing' && <RoutingPanel onClose={() => setActivePanel(null)} />}
+        {activePanel === 'routing' && !isMinimized && <RoutingPanel onClose={() => setActivePanel(null)} />}
         {activePanel === 'poi' && <POIPanel onClose={() => setActivePanel(null)} />}
         {activePanel === 'edit' && <EditPanel onClose={() => setActivePanel(null)} />}
         {activePanel === 'time' && <TimePanel onClose={() => setActivePanel(null)} />}
@@ -105,4 +148,4 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({ onUpload }) => {
       </AnimatePresence>
     </div>
   );
-};
+});

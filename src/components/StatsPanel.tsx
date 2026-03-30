@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../contexts/LanguageContext';
 import { 
-  ArrowUpRight, ArrowDownRight, MoveRight, 
+  ArrowUpRight, ArrowDownRight, Tag, 
   Clock, Zap, BarChart2, Check, Mountain, Layers,
-  Activity, Heart, Thermometer, Box
+  Activity, Heart, Thermometer, Box, X
 } from 'lucide-react';
 import { GPXTrack } from '../types';
 import { cn } from '../lib/utils';
@@ -16,7 +16,7 @@ interface StatsPanelProps {
   onSetElevationMode: (mode: 'elevation' | 'slope') => void;
 }
 
-export const StatsPanel: React.FC<StatsPanelProps> = ({ 
+export const StatsPanel: React.FC<StatsPanelProps> = React.memo(({ 
   track, 
   onToggleElevation,
   isMetric = true,
@@ -46,15 +46,19 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   const gain = isMetric ? track.elevationGain : track.elevationGain * 3.28084;
   const loss = isMetric ? track.elevationLoss : track.elevationLoss * 3.28084;
 
-  const StatItem = ({ icon: Icon, label, value, unit }: any) => (
-    <div className="flex flex-col gap-0.5 min-w-[70px] sm:min-w-[90px]">
-      <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-white/40 uppercase font-bold tracking-wider">
-        <Icon size={12} className="shrink-0" />
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-sm sm:text-lg font-medium tabular-nums">{value}</span>
-        <span className="text-[10px] sm:text-xs text-white/40">{unit}</span>
+  const StatItem = ({ icon: Icon, value, unit, secondaryValue, secondaryUnit, secondaryIcon: SecondaryIcon }: any) => (
+    <div className="flex items-center gap-3 py-1">
+      <Icon size={16} className="text-white shrink-0" />
+      <div className="flex items-baseline gap-1.5 font-medium text-sm sm:text-base">
+        <span className="tabular-nums">{value}</span>
+        <span className="text-[10px] text-white/50">{unit}</span>
+        {secondaryValue !== undefined && (
+          <>
+            {SecondaryIcon && <SecondaryIcon size={14} className="text-white/50 ml-1" />}
+            <span className="tabular-nums ml-1">{secondaryValue}</span>
+            <span className="text-[10px] text-white/50">{secondaryUnit}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -73,77 +77,36 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-4 sm:gap-8 px-4 py-3 bg-[#0a0a0a] text-white border-t border-white/10 relative">
-      <StatItem 
-        icon={MoveRight} 
-        label={t('distance')} 
-        value={distance.toFixed(2)} 
-        unit={distUnit} 
-      />
-      <StatItem 
-        icon={ArrowUpRight} 
-        label={t('elevationGain')} 
-        value={gain.toFixed(0)} 
-        unit={elevUnit} 
-      />
-      <StatItem 
-        icon={ArrowDownRight} 
-        label={t('elevationLoss')} 
-        value={loss.toFixed(0)} 
-        unit={elevUnit} 
-      />
-      <StatItem 
-        icon={Zap} 
-        label={t('speed')} 
-        value="0.00" 
-        unit={isMetric ? 'km/h' : 'mph'} 
-      />
-      <StatItem 
-        icon={Clock} 
-        label={t('movingTime')} 
-        value="00:00" 
-        unit="" 
-      />
+    <div className="flex flex-col h-full bg-black text-white p-4 sm:p-6 relative overflow-y-auto no-scrollbar">
+      <div className="flex flex-col gap-1 sm:gap-2">
+        <StatItem 
+          icon={Tag} 
+          value={distance.toFixed(2)} 
+          unit={distUnit} 
+        />
+        <StatItem 
+          icon={ArrowUpRight} 
+          value={gain.toFixed(0)} 
+          unit={elevUnit} 
+          secondaryIcon={ArrowDownRight}
+          secondaryValue={loss.toFixed(0)}
+          secondaryUnit={elevUnit}
+        />
+        <StatItem 
+          icon={Zap} 
+          value="0.00 / 0.00" 
+          unit={isMetric ? 'km/h' : 'mph'} 
+        />
+        <StatItem 
+          icon={Clock} 
+          value="00:00 / 00:00" 
+          unit="" 
+        />
+      </div>
       
-      <div className="flex-1" />
-      
-      <div className="relative" ref={menuRef}>
-        <button 
-          onClick={() => setShowMenu(!showMenu)}
-          className={cn(
-            "p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors",
-            showMenu && "bg-white/10"
-          )}
-          title={t('elevationProfile')}
-        >
-          <BarChart2 size={20} />
-        </button>
-
-        {showMenu && (
-          <div className="absolute right-0 bottom-full mb-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl py-1 z-[1002]">
-            <MenuItem 
-              icon={Mountain} 
-              label={t('elevation')} 
-              active={elevationMode === 'elevation'} 
-              onClick={() => { onSetElevationMode('elevation'); setShowMenu(false); }} 
-            />
-            <MenuItem 
-              icon={BarChart2} 
-              label={t('slope')} 
-              active={elevationMode === 'slope'} 
-              onClick={() => { onSetElevationMode('slope'); setShowMenu(false); }} 
-            />
-            <MenuItem icon={Layers} label={t('surface')} />
-            <MenuItem icon={Box} label={t('category')} />
-            <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem checkable active label={t('speed')} />
-            <MenuItem checkable active label={t('heartRate')} />
-            <MenuItem checkable active label={t('cadence')} />
-            <MenuItem checkable active label={t('temperature')} />
-            <MenuItem checkable active label={t('power')} />
-          </div>
-        )}
+      <div className="mt-auto pt-4 flex items-center justify-between">
+        {/* Mode toggle moved to ElevationProfile */}
       </div>
     </div>
   );
-};
+});

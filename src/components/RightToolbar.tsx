@@ -7,7 +7,7 @@ interface RightToolbarProps {
   onZoomOut: () => void;
 }
 
-export const RightToolbar: React.FC<RightToolbarProps> = ({ onZoomIn, onZoomOut }) => {
+export const RightToolbar: React.FC<RightToolbarProps> = React.memo(({ onZoomIn, onZoomOut }) => {
   const { t } = useTranslation();
   
   return (
@@ -32,4 +32,4 @@ export const RightToolbar: React.FC<RightToolbarProps> = ({ onZoomIn, onZoomOut 
       </div>
     </div>
   );
-};
+});

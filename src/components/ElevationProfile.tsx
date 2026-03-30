@@ -3,6 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer 
 } from 'recharts';
+import { BarChart2 } from 'lucide-react';
 import { GPXTrack } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { getSlopeColor, processTrackPoints } from '../utils/slope';
@@ -12,13 +13,15 @@ interface ElevationProfileProps {
   onHover: (point: { lat: number; lng: number } | null) => void;
   units: 'metric' | 'imperial';
   mode?: 'elevation' | 'slope';
+  onToggleMode?: () => void;
 }
 
-export const ElevationProfile: React.FC<ElevationProfileProps> = ({ 
+export const ElevationProfile: React.FC<ElevationProfileProps> = React.memo(({ 
   track, 
   onHover, 
   units,
-  mode = 'elevation'
+  mode = 'elevation',
+  onToggleMode
 }) => {
   const { t } = useTranslation();
 
@@ -26,15 +29,28 @@ export const ElevationProfile: React.FC<ElevationProfileProps> = ({
     if (!track || track.points.length === 0) return [];
     
     const processedPoints = processTrackPoints(track.points);
+    
+    // Moving average filter for elevation to reduce noise
+    const windowSize = 10;
+    const elevations = processedPoints.map(p => p.ele || 0);
+    const smoothedElevations: number[] = [];
+    
+    for (let i = 0; i < elevations.length; i++) {
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(elevations.length, i + Math.ceil(windowSize / 2));
+      const window = elevations.slice(start, end);
+      const avg = window.reduce((sum, val) => sum + val, 0) / window.length;
+      smoothedElevations.push(avg);
+    }
 
-    return processedPoints.map((p) => {
+    return processedPoints.map((p, index) => {
       const distanceVal = units === 'metric' 
         ? p.cumulativeDistance / 1000 
         : (p.cumulativeDistance / 1000) * 0.621371;
         
       const elevationVal = units === 'metric'
-        ? p.ele
-        : p.ele * 3.28084;
+        ? smoothedElevations[index]
+        : smoothedElevations[index] * 3.28084;
 
       return {
         distance: parseFloat(distanceVal.toFixed(2)),
@@ -46,12 +62,7 @@ export const ElevationProfile: React.FC<ElevationProfileProps> = ({
     });
   }, [track, units]);
 
-  if (!track || data.length === 0) return null;
-
   const totalDistance = data.length > 0 ? data[data.length - 1].distance : 0;
-
-  const distanceLabel = units === 'metric' ? t('distance') + ' (km)' : t('distance') + ' (mi)';
-  const elevationLabel = units === 'metric' ? t('elevation') + ' (m)' : t('elevation') + ' (ft)';
 
   const slopeGradient = useMemo(() => {
     if (mode !== 'slope' || data.length === 0) return null;
@@ -76,8 +87,13 @@ export const ElevationProfile: React.FC<ElevationProfileProps> = ({
     return stops;
   }, [data, mode, totalDistance]);
 
+  if (!track || data.length === 0) return null;
+
+  const distanceLabel = units === 'metric' ? t('distance') + ' (km)' : t('distance') + ' (mi)';
+  const elevationLabel = units === 'metric' ? t('elevation') + ' (m)' : t('elevation') + ' (ft)';
+
   return (
-    <div className="h-40 sm:h-56 w-full bg-black border-t border-white/10 flex overflow-hidden">
+    <div className="h-full w-full bg-black flex overflow-hidden relative group">
       <div className="flex-1 p-2 sm:p-4">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
@@ -101,20 +117,31 @@ export const ElevationProfile: React.FC<ElevationProfileProps> = ({
               <linearGradient id="slopeLineGradient" x1="0" y1="0" x2="1" y2="0">
                 {slopeGradient}
               </linearGradient>
+              <linearGradient id="verticalFade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="white" stopOpacity={0.3}/>
+                <stop offset="100%" stopColor="white" stopOpacity={0}/>
+              </linearGradient>
+              <mask id="slopeMask">
+                <rect x="0" y="0" width="100%" height="100%" fill="url(#verticalFade)" />
+              </mask>
             </defs>
             <XAxis 
               dataKey="distance" 
-              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }}
+              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }}
               axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
               tickLine={false}
               interval="preserveStartEnd"
+              unit={units === 'metric' ? ' km' : ' mi'}
+              dy={10}
             />
             <YAxis 
-              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }}
+              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }}
               domain={['dataMin - 10', 'dataMax + 10']}
               axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
               tickLine={false}
-              orientation="right"
+              orientation="left"
+              unit={units === 'metric' ? ' m' : ' ft'}
+              width={60}
             />
             <Tooltip 
               content={({ active, payload }) => {
@@ -132,18 +159,38 @@ export const ElevationProfile: React.FC<ElevationProfileProps> = ({
               }}
             />
             
+            {/* Fill Area */}
             <Area 
               type="linear" 
               dataKey="elevation" 
-              stroke={mode === 'slope' ? "url(#slopeLineGradient)" : "#3b82f6"} 
+              stroke="none"
               fill={mode === 'slope' ? "url(#slopeLineGradient)" : "url(#colorEle)"} 
               fillOpacity={mode === 'slope' ? 1 : 0.6}
+              mask={mode === 'slope' ? "url(#slopeMask)" : undefined}
+              isAnimationActive={false}
+            />
+            
+            {/* Stroke Line */}
+            <Area 
+              type="linear" 
+              dataKey="elevation" 
+              fill="none"
+              stroke={mode === 'slope' ? "url(#slopeLineGradient)" : "#3b82f6"} 
               strokeWidth={2}
               isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      
+      {onToggleMode && (
+        <button 
+          onClick={onToggleMode}
+          className="absolute right-4 bottom-10 p-1.5 bg-white/10 hover:bg-white/20 rounded border border-white/10 text-white/60 transition-colors z-10"
+        >
+          <BarChart2 size={16} />
+        </button>
+      )}
     </div>
   );
-};
+});

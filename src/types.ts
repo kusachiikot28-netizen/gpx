@@ -5,11 +5,25 @@ export interface GPXPoint {
   time?: Date;
 }
 
+export interface POI {
+  id: string;
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  icon?: string;
+  link?: string;
+}
+
 export interface GPXTrack {
   id: string;
   name: string;
   points: GPXPoint[];
+  waypoints?: GPXPoint[];
   distance: number; // in meters
   elevationGain: number; // in meters
   elevationLoss: number; // in meters
+  hidden?: boolean;
+  color?: string;
+  poi?: POI[];
 }

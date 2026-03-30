@@ -1,5 +1,5 @@
 {
   "name": "GPX Studio Clone",
-  "description": "An online GPX file editor and viewer with elevation profiles and map tools.",
+  "description": "An online GPX file editor and viewer with elevation profiles, track management, and map tools.",
   "requestFramePermissions": ["geolocation"]
 }

@@ -6,34 +6,74 @@ import {
   Info, Palette, EyeOff, MousePointer, Target, 
   Activity, ListTree, Map as MapIcon, Layers, Ruler, 
   Navigation, Box, Ruler as RulerIcon, Zap, Thermometer, 
-  Languages, Moon, User, ChevronRight, Check
+  Languages, Moon, User, ChevronRight, Check, Link
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface TopNavProps {
   onNew: () => void;
   onUpload: () => void;
+  onUrlImport: () => void;
+  onDuplicate: () => void;
   onDeleteAll: () => void;
   onExportAll: () => void;
   onToggleElevation: () => void;
   showElevation: boolean;
+  onToggleFileTree: () => void;
+  showFileTree: boolean;
+  onToggleDirectionArrows: () => void;
+  showDirectionArrows: boolean;
+  onToggleDistanceMarkers: () => void;
+  showDistanceMarkers: boolean;
   elevationMode: 'elevation' | 'slope';
   onSetElevationMode: (mode: 'elevation' | 'slope') => void;
   units: 'metric' | 'imperial';
   onToggleUnits: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onDeleteSelected: () => void;
+  onExportSelected: () => void;
+  onHideSelected: () => void;
+  onUnhideSelected: () => void;
+  onSelectAll: () => void;
+  onCenter: () => void;
+  isSelectedHidden: boolean;
+  hasSelection: boolean;
 }
 
-export const TopNav: React.FC<TopNavProps> = ({ 
+export const TopNav: React.FC<TopNavProps> = React.memo(({ 
   onNew,
   onUpload, 
+  onUrlImport,
+  onDuplicate,
   onDeleteAll, 
   onExportAll, 
   onToggleElevation,
   showElevation,
+  onToggleFileTree,
+  showFileTree,
+  onToggleDirectionArrows,
+  showDirectionArrows,
+  onToggleDistanceMarkers,
+  showDistanceMarkers,
   elevationMode,
   onSetElevationMode,
   units,
-  onToggleUnits
+  onToggleUnits,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onDeleteSelected,
+  onExportSelected,
+  onHideSelected,
+  onUnhideSelected,
+  onSelectAll,
+  onCenter,
+  isSelectedHidden,
+  hasSelection
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -49,15 +89,19 @@ export const TopNav: React.FC<TopNavProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const MenuItem = ({ icon: Icon, label, shortcut, onClick, active, hasSubmenu, color }: any) => (
+  const MenuItem = ({ icon: Icon, label, shortcut, onClick, active, hasSubmenu, color, disabled }: any) => (
     <button 
+      disabled={disabled}
       onClick={(e) => {
-        if (!hasSubmenu) {
+        if (!hasSubmenu && !disabled) {
           onClick?.();
           setActiveMenu(null);
         }
       }}
-      className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/10 rounded text-sm transition-colors group"
+      className={cn(
+        "w-full flex items-center justify-between px-3 py-2 rounded text-sm transition-colors group",
+        disabled ? "cursor-not-allowed opacity-50" : "hover:bg-white/10 cursor-pointer"
+      )}
     >
       <div className="flex items-center gap-3">
         {active !== undefined ? (
@@ -67,7 +111,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         ) : (
           <Icon size={16} className={cn("opacity-70 group-hover:opacity-100", color)} />
         )}
-        <span className={cn(color)}>{label}</span>
+        <span className={cn(color, active === false && "text-white/40")}>{label}</span>
       </div>
       <div className="flex items-center gap-2">
         {shortcut && <span className="text-[10px] opacity-40 font-mono bg-white/5 px-1 rounded">{shortcut}</span>}
@@ -107,12 +151,13 @@ export const TopNav: React.FC<TopNavProps> = ({
           <Dropdown>
             <MenuItem icon={Plus} label={t('new')} shortcut="Ctrl +" onClick={onNew} />
             <MenuItem icon={FolderOpen} label={t('open')} shortcut="Ctrl O" onClick={onUpload} />
-            <MenuItem icon={Copy} label={t('duplicate')} shortcut="Ctrl D" />
+            <MenuItem icon={Link} label={t('importUrl')} onClick={onUrlImport} />
+            <MenuItem icon={Copy} label={t('duplicate')} shortcut="Ctrl D" onClick={onDuplicate} disabled={!hasSelection} />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Trash2} label={t('delete')} shortcut="Ctrl ⌫" />
+            <MenuItem icon={Trash2} label={t('delete')} shortcut="Ctrl ⌫" onClick={onDeleteSelected} disabled={!hasSelection} />
             <MenuItem icon={Trash2} label={t('deleteAll')} shortcut="⇧ Ctrl ⌫" onClick={onDeleteAll} />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Download} label={t('export')} shortcut="Ctrl S" />
+            <MenuItem icon={Download} label={t('export')} shortcut="Ctrl S" onClick={onExportSelected} disabled={!hasSelection} />
             <MenuItem icon={Download} label={t('exportAll')} shortcut="⇧ Ctrl S" onClick={onExportAll} />
           </Dropdown>
         )}
@@ -132,17 +177,35 @@ export const TopNav: React.FC<TopNavProps> = ({
         </button>
         {activeMenu === 'edit' && (
           <Dropdown>
-            <MenuItem icon={Undo2} label={t('undo')} shortcut="Ctrl Z" />
-            <MenuItem icon={Redo2} label={t('redo')} shortcut="⇧ Ctrl Z" />
+            <MenuItem 
+              icon={Undo2} 
+              label={t('undo')} 
+              shortcut="Ctrl Z" 
+              onClick={onUndo} 
+              disabled={!canUndo}
+              color={!canUndo ? "opacity-30" : ""}
+            />
+            <MenuItem 
+              icon={Redo2} 
+              label={t('redo')} 
+              shortcut="⇧ Ctrl Z" 
+              onClick={onRedo} 
+              disabled={!canRedo}
+              color={!canRedo ? "opacity-30" : ""}
+            />
             <div className="h-[1px] bg-white/10 my-1" />
             <MenuItem icon={Info} label={t('info')} shortcut="Ctrl I" />
             <MenuItem icon={Palette} label={t('appearance')} />
-            <MenuItem icon={EyeOff} label={t('unhide')} shortcut="Ctrl H" />
+            {isSelectedHidden ? (
+              <MenuItem icon={Eye} label={t('unhide')} shortcut="Ctrl H" onClick={onUnhideSelected} disabled={!hasSelection} />
+            ) : (
+              <MenuItem icon={EyeOff} label={t('hide')} shortcut="Ctrl H" onClick={onHideSelected} disabled={!hasSelection} />
+            )}
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={MousePointer} label={t('selectAll')} shortcut="Ctrl A" />
-            <MenuItem icon={Target} label={t('center')} shortcut="Ctrl ↵" />
+            <MenuItem icon={MousePointer} label={t('selectAll')} shortcut="Ctrl A" onClick={onSelectAll} />
+            <MenuItem icon={Target} label={t('center')} shortcut="Ctrl ↵" onClick={onCenter} />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Trash2} label={t('delete')} shortcut="Ctrl ⌫" color="text-red-400" />
+            <MenuItem icon={Trash2} label={t('delete')} shortcut="Ctrl ⌫" color="text-red-400" onClick={onDeleteSelected} disabled={!hasSelection} />
           </Dropdown>
         )}
       </div>
@@ -162,30 +225,25 @@ export const TopNav: React.FC<TopNavProps> = ({
         {activeMenu === 'view' && (
           <Dropdown>
             <MenuItem active={showElevation} label={t('elevationProfile')} shortcut="Ctrl P" onClick={onToggleElevation} />
-            <div className="pl-8 space-y-1 mt-1">
-              <button 
-                type="button" 
-                onClick={() => { onSetElevationMode('elevation'); setActiveMenu(null); }} 
-                className={cn("text-xs flex items-center gap-2 py-1 w-full text-left", elevationMode === 'elevation' ? "text-blue-400" : "text-white/60")}
-              >
-                {elevationMode === 'elevation' && <Check size={12} />}
-                {t('elevation')}
-              </button>
-              <button 
-                type="button" 
-                onClick={() => { onSetElevationMode('slope'); setActiveMenu(null); }} 
-                className={cn("text-xs flex items-center gap-2 py-1 w-full text-left", elevationMode === 'slope' ? "text-blue-400" : "text-white/60")}
-              >
-                {elevationMode === 'slope' && <Check size={12} />}
-                {t('slope')}
-              </button>
-            </div>
+            <MenuItem active={showFileTree} label={t('fileTree')} shortcut="Ctrl T" onClick={onToggleFileTree} />
             <div className="h-[1px] bg-white/10 my-1" />
             <MenuItem icon={MapIcon} label={t('previousBasemap')} shortcut="F1" />
             <MenuItem icon={Layers} label={t('toggleOverlays')} shortcut="F2" />
             <div className="h-[1px] bg-white/10 my-1" />
-            <MenuItem icon={Ruler} label={t('distanceMarkers')} shortcut="F3" />
-            <MenuItem icon={Navigation} label={t('directionArrows')} shortcut="F4" />
+            <MenuItem 
+              icon={Ruler} 
+              label={t('distanceMarkers')} 
+              shortcut="F3" 
+              active={showDistanceMarkers}
+              onClick={onToggleDistanceMarkers}
+            />
+            <MenuItem 
+              icon={Navigation} 
+              label={t('directionArrows')} 
+              shortcut="F4" 
+              active={showDirectionArrows} 
+              onClick={onToggleDirectionArrows} 
+            />
             <div className="h-[1px] bg-white/10 my-1" />
             <MenuItem icon={Box} label={t('toggle3D')} shortcut="Ctrl Drag" />
           </Dropdown>
@@ -242,4 +300,4 @@ export const TopNav: React.FC<TopNavProps> = ({
       <button type="button" className="p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors text-pink-400 shrink-0"><Heart size={18} className="sm:w-5 sm:h-5" /></button>
     </div>
   );
-};
+});
