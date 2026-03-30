@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Edit2, MapPin, Scissors, Clock, Maximize, 
   Layers, Mountain, Filter, MousePointer2, Upload,
-  Maximize2, Plus
+  Maximize2, Plus, Sliders
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTranslation } from '../contexts/LanguageContext';
 import { 
   RoutingPanel, POIPanel, EditPanel, TimePanel, 
-  MergePanel, ExtractPanel, ElevationPanel, FilterPanel, CleanPanel 
+  MergePanel, ExtractPanel, ElevationPanel, FilterPanel, CleanPanel,
+  AttributesPanel
 } from './ToolbarPanels';
 
 import { GPXTrack } from '../types';
@@ -19,11 +20,14 @@ interface LeftToolbarProps {
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAddTrack: (track: GPXTrack) => void;
   onNew: () => void;
+  onSaveRoute: () => void;
+  selectedTrack: GPXTrack | null;
+  onUpdateTrack: (id: string, updates: Partial<GPXTrack>) => void;
 }
 
-type ActivePanel = 'routing' | 'poi' | 'edit' | 'time' | 'merge' | 'extract' | 'elevation' | 'filter' | 'clean' | null;
+type ActivePanel = 'routing' | 'poi' | 'edit' | 'time' | 'merge' | 'extract' | 'elevation' | 'filter' | 'clean' | 'attributes' | null;
 
-export const LeftToolbar: React.FC<LeftToolbarProps> = React.memo(({ onUpload, onAddTrack, onNew }) => {
+export const LeftToolbar: React.FC<LeftToolbarProps> = React.memo(({ onUpload, onAddTrack, onNew, onSaveRoute, selectedTrack, onUpdateTrack }) => {
   const { t } = useTranslation();
   const { isMinimized, setIsMinimized, isEditMode, setIsEditMode, activePanel, setActivePanel } = useRouting();
 
@@ -68,6 +72,13 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = React.memo(({ onUpload, o
           title={t('poi')}
         >
           <MapPin size={18} className="sm:w-5 sm:h-5" />
+        </button>
+        <button 
+          onClick={() => togglePanel('attributes')}
+          className={cn("p-1.5 sm:p-2 hover:bg-white/10 rounded transition-colors", activePanel === 'attributes' && "bg-blue-600 hover:bg-blue-700")}
+          title={t('attributes')}
+        >
+          <Sliders size={18} className="sm:w-5 sm:h-5" />
         </button>
         <button 
           onClick={() => togglePanel('edit')}
@@ -136,8 +147,20 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = React.memo(({ onUpload, o
       )}
 
       <AnimatePresence>
-        {activePanel === 'routing' && !isMinimized && <RoutingPanel onClose={() => setActivePanel(null)} />}
+        {activePanel === 'routing' && !isMinimized && (
+          <RoutingPanel 
+            onClose={() => setActivePanel(null)} 
+            onSave={onSaveRoute}
+          />
+        )}
         {activePanel === 'poi' && <POIPanel onClose={() => setActivePanel(null)} />}
+        {activePanel === 'attributes' && (
+          <AttributesPanel 
+            onClose={() => setActivePanel(null)} 
+            track={selectedTrack}
+            onUpdate={onUpdateTrack}
+          />
+        )}
         {activePanel === 'edit' && <EditPanel onClose={() => setActivePanel(null)} />}
         {activePanel === 'time' && <TimePanel onClose={() => setActivePanel(null)} />}
         {activePanel === 'merge' && <MergePanel onClose={() => setActivePanel(null)} />}

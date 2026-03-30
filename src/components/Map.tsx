@@ -69,7 +69,18 @@ function MapClickHandler() {
 }
 
 const RoutePreview: React.FC = () => {
-  const { waypoints, trackPoints, isEditMode } = useRouting();
+  const map = useMap();
+  const { t } = useTranslation();
+  const { 
+    waypoints, 
+    trackPoints, 
+    isEditMode, 
+    updateWaypoint, 
+    removeWaypoint, 
+    insertWaypoint,
+    selectedWaypointIndex,
+    setSelectedWaypointIndex
+  } = useRouting();
 
   if (!isEditMode) return null;
 
@@ -80,23 +91,101 @@ const RoutePreview: React.FC = () => {
       {trackPoints.length > 1 && (
         <Polyline 
           positions={positions}
-          color="#3b82f6" 
-          weight={4}
-          opacity={0.6}
-          dashArray="5, 5"
-          interactive={false}
+          color="#f97316" 
+          weight={6}
+          opacity={0.8}
+          dashArray="5, 10"
+          eventHandlers={{
+            click: (e) => {
+              // Find nearest segment to insert point
+              const latlng = e.latlng;
+              let minDistance = Infinity;
+              let insertIndex = -1;
+
+              for (let i = 0; i < waypoints.length - 1; i++) {
+                const p1 = L.latLng(waypoints[i].lat, waypoints[i].lng);
+                const p2 = L.latLng(waypoints[i+1].lat, waypoints[i+1].lng);
+                
+                // Simple distance to segment approximation
+                const dist = L.LineUtil.pointToSegmentDistance(
+                  map.project(latlng),
+                  map.project(p1),
+                  map.project(p2)
+                );
+
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  insertIndex = i + 1;
+                }
+              }
+
+              if (insertIndex !== -1 && minDistance < (window.innerWidth < 768 ? 40 : 20)) { // Increased tolerance for mobile
+                insertWaypoint(insertIndex, {
+                  lat: latlng.lat,
+                  lng: latlng.lng,
+                  ele: 0,
+                  time: new Date()
+                });
+                setSelectedWaypointIndex(insertIndex);
+              }
+            }
+          }}
         />
       )}
       {waypoints.map((wp, idx) => (
-        <Marker key={idx} position={[wp.lat, wp.lng]} icon={L.divIcon({
-          className: cn(
-            'w-3 h-3 rounded-full border-2 border-white shadow-lg',
-            idx === 0 ? 'bg-green-500' : idx === waypoints.length - 1 ? 'bg-red-500' : 'bg-blue-600'
-          ),
-          iconSize: [12, 12],
-          iconAnchor: [6, 6]
-        })}>
-          <Popup>Waypoint {idx + 1}</Popup>
+        <Marker 
+          key={`${idx}-${wp.lat}-${wp.lng}`} 
+          position={[wp.lat, wp.lng]} 
+          draggable={true}
+          eventHandlers={{
+            click: () => {
+              setSelectedWaypointIndex(idx);
+            },
+            dragstart: () => {
+              setSelectedWaypointIndex(idx);
+            },
+            dragend: (e) => {
+              const marker = e.target;
+              const position = marker.getLatLng();
+              updateWaypoint(idx, {
+                ...wp,
+                lat: position.lat,
+                lng: position.lng
+              });
+            },
+            contextmenu: () => {
+              if (window.confirm(t('confirmDeletePoint') || 'Delete this point?')) {
+                removeWaypoint(idx);
+                setSelectedWaypointIndex(null);
+              }
+            }
+          }}
+          icon={L.divIcon({
+            className: cn(
+              'rounded-full border-2 border-white shadow-lg cursor-move hover:scale-125 transition-transform',
+              'w-4 h-4 sm:w-4 sm:h-4 md:w-4 md:h-4', // Base size
+              'w-6 h-6 sm:w-4 sm:h-4', // Mobile larger size
+              selectedWaypointIndex === idx ? 'ring-4 ring-blue-400 ring-opacity-50 scale-125' : '',
+              idx === 0 ? 'bg-green-500' : idx === waypoints.length - 1 ? 'bg-red-500' : 'bg-blue-600'
+            ),
+            iconSize: window.innerWidth < 768 ? [24, 24] : [16, 16],
+            iconAnchor: window.innerWidth < 768 ? [12, 12] : [8, 8]
+          })}
+        >
+          <Popup>
+            <div className="flex flex-col gap-2">
+              <span className="font-bold">Waypoint {idx + 1}</span>
+              <button 
+                onClick={() => {
+                  removeWaypoint(idx);
+                  setSelectedWaypointIndex(null);
+                }}
+                className="text-xs text-red-500 hover:text-red-700 font-medium text-left"
+              >
+                Remove Point
+              </button>
+            </div>
+          </Popup>
         </Marker>
       ))}
     </>
@@ -149,6 +238,10 @@ const SlopeColoredTrack: React.FC<{ track: GPXTrack }> = React.memo(({ track }) 
     return result;
   }, [track]);
 
+  const trackWidth = track.width ?? 5;
+  const trackOpacity = track.opacity ?? 1;
+  const dashArray = track.lineStyle === 'dashed' ? '10, 10' : track.lineStyle === 'dotted' ? '1, 10' : undefined;
+
   return (
     <>
       {segments.map((seg, idx) => (
@@ -156,8 +249,9 @@ const SlopeColoredTrack: React.FC<{ track: GPXTrack }> = React.memo(({ track }) 
           key={idx}
           positions={seg.positions}
           color={seg.color}
-          weight={5}
-          opacity={1}
+          weight={trackWidth}
+          opacity={trackOpacity}
+          dashArray={dashArray}
         />
       ))}
     </>
@@ -313,6 +407,30 @@ const POILayer: React.FC = () => {
   );
 };
 
+function KeyboardHandler() {
+  const { isEditMode, removeLastWaypoint, removeWaypoint, selectedWaypointIndex, setSelectedWaypointIndex } = useRouting();
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isEditMode) return;
+      
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedWaypointIndex !== null) {
+          removeWaypoint(selectedWaypointIndex);
+          setSelectedWaypointIndex(null);
+        } else {
+          removeLastWaypoint();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditMode, removeLastWaypoint, removeWaypoint, selectedWaypointIndex, setSelectedWaypointIndex]);
+  
+  return null;
+}
+
 export const Map: React.FC<MapProps> = React.memo(({ 
   tracks, 
   selectedTrackIds, 
@@ -370,6 +488,7 @@ export const Map: React.FC<MapProps> = React.memo(({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapClickHandler />
+        <KeyboardHandler />
         <RoutePreview />
         <POILayer />
         {tracks.map((track) => {
@@ -378,6 +497,9 @@ export const Map: React.FC<MapProps> = React.memo(({
           
           const positions = track.points.map(p => [p.lat, p.lng]) as L.LatLngExpression[];
           const trackColor = track.color || (isSelected ? "#ef4444" : "#94a3b8");
+          const trackWidth = track.width ?? (isSelected ? 5 : 3);
+          const trackOpacity = track.opacity ?? (isSelected ? 1 : 0.6);
+          const dashArray = track.lineStyle === 'dashed' ? '10, 10' : track.lineStyle === 'dotted' ? '1, 10' : undefined;
 
           if (isSelected && elevationMode === 'slope') {
             return (
@@ -386,7 +508,7 @@ export const Map: React.FC<MapProps> = React.memo(({
                 <Polyline
                   positions={positions}
                   color="white"
-                  weight={9}
+                  weight={trackWidth + 4}
                   opacity={0.8}
                 />
                 <SlopeColoredTrack track={track} />
@@ -412,14 +534,15 @@ export const Map: React.FC<MapProps> = React.memo(({
               <Polyline
                 positions={positions}
                 color="white"
-                weight={isSelected ? 9 : 6}
+                weight={trackWidth + 4}
                 opacity={isSelected ? 0.8 : 0.4}
               />
               <Polyline
                 positions={positions}
                 color={trackColor}
-                weight={isSelected ? 5 : 3}
-                opacity={isSelected ? 1 : 0.6}
+                weight={trackWidth}
+                opacity={trackOpacity}
+                dashArray={dashArray}
               />
               {showDirectionArrows && (
                 <DirectionArrows 

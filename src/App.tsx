@@ -99,15 +99,20 @@ function AppContent() {
     }
   }, [tracks.length, newTracksAdded]);
 
-  const handleCreateTrackFromRouting = useCallback(() => {
+  const handleSaveRoute = useCallback(() => {
+    if (trackPoints.length === 0 && waypoints.length === 0) {
+      toast.error(t('noRouteToSave'));
+      return;
+    }
+
     const newId = `new-${Date.now()}`;
     setTracks(prev => {
       const newTrack: GPXTrack = {
         id: newId,
         name: `New file ${prev.length + 1}`,
-        points: trackPoints,
-        waypoints: waypoints,
-        poi: pois,
+        points: [...trackPoints],
+        waypoints: [...waypoints],
+        poi: [...pois],
         distance: 0,
         elevationGain: 0,
         elevationLoss: 0,
@@ -171,9 +176,9 @@ function AppContent() {
   // Auto-create track if points are added without selection in edit mode
   useEffect(() => {
     if (selectedTrackIds.length === 0 && (trackPoints.length > 0 || waypoints.length > 0) && isEditMode) {
-      handleCreateTrackFromRouting();
+      handleSaveRoute();
     }
-  }, [selectedTrackIds.length, trackPoints.length, waypoints.length, isEditMode, handleCreateTrackFromRouting]);
+  }, [selectedTrackIds.length, trackPoints.length, waypoints.length, isEditMode, handleSaveRoute]);
 
   // Sync RoutingContext with selected track (e.g. on selection change or undo/redo)
   useEffect(() => {
@@ -189,11 +194,18 @@ function AppContent() {
           lastSyncRef.current = { points: track.points, waypoints: trackWps, pois: trackPois };
         }
       }
-    } else if (selectedTrackIds.length === 0 && !isEditMode) {
+    } else if (selectedTrackIds.length === 0) {
+      // If no track is selected, we should clear the routing context
+      // unless we are in the middle of creating a new track from routing
       if (trackPoints.length > 0 || waypoints.length > 0 || pois.length > 0) {
-        clearWaypoints();
-        clearPOIs();
-        lastSyncRef.current = null;
+        // Only clear if we are NOT in edit mode OR if the current points match the last synced track
+        // (which means they were part of a track that is no longer selected)
+        const isStale = lastSyncRef.current !== null;
+        if (!isEditMode || isStale) {
+          clearWaypoints();
+          clearPOIs();
+          lastSyncRef.current = null;
+        }
       }
     }
   }, [selectedTrackIds, tracks, loadSession, clearWaypoints, clearPOIs, trackPoints.length, waypoints.length, pois.length, isEditMode]);
@@ -205,8 +217,9 @@ function AppContent() {
       
       // If the RoutingContext state is different from what we last synced
       if (trackPoints !== lastSyncRef.current?.points || waypoints !== lastSyncRef.current?.waypoints || pois !== lastSyncRef.current?.pois) {
+        
         // If this change was triggered by history navigation or loadSession, skip syncing back
-        // until all states have caught up with the lastSyncRef
+        // We clear the flag if the state matches what we last synced from history
         if (isSyncingFromHistoryRef.current) {
           const isFullySynced = 
             trackPoints === lastSyncRef.current?.points && 
@@ -215,6 +228,13 @@ function AppContent() {
           
           if (isFullySynced) {
             isSyncingFromHistoryRef.current = false;
+          } else {
+            // If not fully synced yet, we wait for the next render
+            // But we add a safety timeout to prevent getting stuck
+            const timeout = setTimeout(() => {
+              isSyncingFromHistoryRef.current = false;
+            }, 100);
+            return () => clearTimeout(timeout);
           }
           return;
         }
@@ -362,20 +382,27 @@ function AppContent() {
   }, [processGPXContent, t]);
 
   const handleDelete = useCallback((id: string) => {
+    const isSelected = selectedTrackIds.includes(id);
+    const isLastSelected = isSelected && selectedTrackIds.length === 1;
+
     setTracks(prev => prev.filter(t => t.id !== id));
-    setSelectedTrackIds(prev => {
-      const next = prev.filter(tid => tid !== id);
-      if (prev.includes(id) && next.length === 0) {
-        clearWaypoints();
-        clearPOIs();
-      }
-      return next;
-    });
-  }, [setTracks, clearWaypoints, clearPOIs]);
+    setSelectedTrackIds(prev => prev.filter(tid => tid !== id));
+
+    if (isLastSelected) {
+      clearWaypoints();
+      clearPOIs();
+      lastSyncRef.current = null;
+    }
+  }, [setTracks, selectedTrackIds, clearWaypoints, clearPOIs]);
 
   const handleDeleteSelected = useCallback(() => {
-    selectedTrackIds.forEach(id => handleDelete(id));
-  }, [selectedTrackIds, handleDelete]);
+    const idsToDelete = new Set(selectedTrackIds);
+    setTracks(prev => prev.filter(t => !idsToDelete.has(t.id)));
+    setSelectedTrackIds([]);
+    clearWaypoints();
+    clearPOIs();
+    lastSyncRef.current = null;
+  }, [selectedTrackIds, setTracks, clearWaypoints, clearPOIs]);
 
   const generateGPX = (track: GPXTrack) => {
     const waypointsXML = (track.poi || []).map(p => `
@@ -528,9 +555,11 @@ function AppContent() {
 
   const handleDeleteAll = useCallback(() => {
     setTracks([]);
-    clearWaypoints();
     setSelectedTrackIds([]);
-  }, [setTracks, clearWaypoints]);
+    clearWaypoints();
+    clearPOIs();
+    lastSyncRef.current = null;
+  }, [setTracks, clearWaypoints, clearPOIs]);
 
   const handleZoomIn = useCallback(() => {
     if (mapInstance) mapInstance.zoomIn();
@@ -641,6 +670,10 @@ function AppContent() {
     setTracks(prev => prev.map(t => t.id === id ? { ...t, hidden: !t.hidden } : t));
   }, [setTracks]);
 
+  const handleUpdateTrack = useCallback((id: string, updates: Partial<GPXTrack>) => {
+    setTracks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  }, [setTracks]);
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100">
       <input 
@@ -687,6 +720,9 @@ function AppContent() {
           onUpload={() => fileInputRef.current?.click()} 
           onAddTrack={handleAddTrack}
           onNew={handleNewTrack}
+          onSaveRoute={handleSaveRoute}
+          selectedTrack={selectedTrack}
+          onUpdateTrack={handleUpdateTrack}
         />
         <RightToolbar 
           onZoomIn={handleZoomIn}

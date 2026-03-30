@@ -1,8 +1,8 @@
 import { GPXPoint } from '../types';
 
-const MAX_POINTS_PER_REQUEST = 250;
-const MIN_DELAY_BETWEEN_BATCHES = 1200; // Increased slightly
-const GLOBAL_COOLDOWN = 2500; // Increased slightly
+const MAX_POINTS_PER_REQUEST = 50;
+const MIN_DELAY_BETWEEN_BATCHES = 1500; 
+const GLOBAL_COOLDOWN = 3000; 
 
 let isRequesting = false;
 let lastRequestTime = 0;
@@ -76,11 +76,17 @@ export async function getElevation(points: GPXPoint[]): Promise<number[]> {
 
       let success = false;
       let retries = 5;
-      let backoff = 4000;
+      let backoff = 2000;
 
       while (!success && retries >= 0) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         try {
-          const response = await fetch(url);
+          const response = await fetch(url, { 
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
           
           if (response.status === 429) {
             console.warn(`Rate limit hit. Locking out for 30s...`);
@@ -90,6 +96,7 @@ export async function getElevation(points: GPXPoint[]): Promise<number[]> {
           
           if (!response.ok) {
             if (response.status === 400) {
+              console.error('Bad request to elevation API. Points might be out of range.');
               batch.forEach(p => { results[p.idx] = 0; });
               success = true;
               break;
@@ -109,15 +116,23 @@ export async function getElevation(points: GPXPoint[]): Promise<number[]> {
             throw new Error('No elevation data in response');
           }
         } catch (error) {
-          console.error(`Elevation fetch attempt failed (${retries} retries left):`, error);
+          clearTimeout(timeoutId);
+          const isAbort = error instanceof Error && error.name === 'AbortError';
+          const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+          const errorMsg = isOffline ? 'User is offline' : (isAbort ? 'Request timed out' : (error instanceof Error ? error.message : String(error)));
+          
+          console.error(`Elevation fetch attempt failed (${retries} retries left): ${errorMsg}`);
+          
           retries--;
           if (retries < 0) {
             batch.forEach(p => { results[p.idx] = 0; });
           } else {
             // Jittered exponential backoff
             const jitter = Math.random() * 1000;
-            await new Promise(resolve => setTimeout(resolve, backoff + jitter));
-            backoff *= 2;
+            // If offline, wait longer before retry
+            const waitTime = isOffline ? 10000 : (backoff + jitter);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            if (!isOffline) backoff *= 2;
           }
         }
       }

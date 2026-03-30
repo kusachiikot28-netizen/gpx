@@ -6,7 +6,7 @@ import {
   HelpCircle, ExternalLink, X, Calendar, 
   Clock, Zap, Trash2, Mountain, Filter,
   MousePointer2, Scissors, Maximize, Layers,
-  MapPin, Edit2, Minimize2
+  MapPin, Edit2, Minimize2, Sliders
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -65,16 +65,17 @@ const Panel: React.FC<PanelProps> = ({ title, onClose, onMinimize, children, foo
   );
 };
 
-export const RoutingPanel: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => {
+export const RoutingPanel: React.FC<{ onClose: () => void, onSave?: () => void }> = React.memo(({ onClose, onSave }) => {
   const { t } = useTranslation();
   const { 
     setIsEditMode, 
     isRoutingEnabled, setIsRoutingEnabled,
     isMinimized, setIsMinimized,
     activity, setActivity, 
-    waypoints, trackPoints, clearWaypoints, removeLastWaypoint,
+    waypoints, trackPoints, clearWaypoints, removeLastWaypoint, removeWaypoint,
     reverseWaypoints, backToStart, roundTrip,
     isCalculating, setIsCalculating,
+    selectedWaypointIndex, setSelectedWaypointIndex,
     hasSelection
   } = useRouting();
 
@@ -164,6 +165,18 @@ export const RoutingPanel: React.FC<{ onClose: () => void }> = React.memo(({ onC
         >
           <Trash2 size={14} /> {t('clear')}
         </button>
+        {selectedWaypointIndex !== null && (
+          <button 
+            onClick={() => {
+              removeWaypoint(selectedWaypointIndex);
+              setSelectedWaypointIndex(null);
+            }}
+            disabled={isCalculating}
+            className="flex flex-col items-center gap-1 p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-[10px] transition-colors disabled:opacity-30 border border-red-500/20"
+          >
+            <Trash2 size={14} /> {t('deletePoint')}
+          </button>
+        )}
       </div>
 
       {waypoints.length > 0 && (
@@ -171,7 +184,14 @@ export const RoutingPanel: React.FC<{ onClose: () => void }> = React.memo(({ onC
           <div className="text-[10px] text-white/40 uppercase font-bold tracking-wider mb-2">{t('waypoints')} ({waypoints.length})</div>
           <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
             {waypoints.map((wp, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-[10px] text-white/60 bg-white/5 p-1 rounded">
+              <div 
+                key={idx} 
+                onClick={() => setSelectedWaypointIndex(idx)}
+                className={cn(
+                  "flex items-center gap-2 text-[10px] p-1 rounded cursor-pointer transition-colors",
+                  selectedWaypointIndex === idx ? "bg-blue-600 text-white" : "text-white/60 bg-white/5 hover:bg-white/10"
+                )}
+              >
                 <MapPin size={10} />
                 <span>{wp.lat.toFixed(4)}, {wp.lng.toFixed(4)}</span>
               </div>
@@ -179,6 +199,125 @@ export const RoutingPanel: React.FC<{ onClose: () => void }> = React.memo(({ onC
           </div>
         </div>
       )}
+
+      {onSave && (
+        <button 
+          onClick={onSave}
+          disabled={trackPoints.length === 0 || isCalculating}
+          className="w-full mt-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <Edit2 size={16} />
+          {t('saveTrack')}
+        </button>
+      )}
+    </Panel>
+  );
+});
+
+export const AttributesPanel: React.FC<{ 
+  onClose: () => void, 
+  track: GPXTrack | null,
+  onUpdate: (id: string, updates: Partial<GPXTrack>) => void
+}> = React.memo(({ onClose, track, onUpdate }) => {
+  const { t } = useTranslation();
+  
+  if (!track) {
+    return (
+      <Panel title={t('attributes')} onClose={onClose} footer={t('attributesFooter')}>
+        <div className="p-4 text-center text-xs text-white/40 italic">
+          {t('noTrackSelectedPOI')}
+        </div>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel title={t('attributes')} onClose={onClose} footer={t('attributesFooter')}>
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <label className="text-xs text-white/40">{t('trackName')}</label>
+          <input 
+            value={track.name}
+            onChange={(e) => onUpdate(track.id, { name: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded p-2 text-sm outline-none focus:border-blue-500" 
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-white/40">{t('lineColor')}</label>
+          <div className="flex gap-2 flex-wrap">
+            {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ffffff', '#000000'].map(color => (
+              <button
+                key={color}
+                onClick={() => onUpdate(track.id, { color })}
+                className={cn(
+                  "w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110",
+                  track.color === color && "ring-2 ring-blue-500 ring-offset-2 ring-offset-[#1a1a1a]"
+                )}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+            <input 
+              type="color"
+              value={track.color || '#3b82f6'}
+              onChange={(e) => onUpdate(track.id, { color: e.target.value })}
+              className="w-6 h-6 bg-transparent border-none p-0 cursor-pointer"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <label className="text-xs text-white/40">{t('lineOpacity')}</label>
+            <span className="text-[10px] text-white/60">{Math.round((track.opacity ?? 0.8) * 100)}%</span>
+          </div>
+          <input 
+            type="range"
+            min="0.1"
+            max="1"
+            step="0.1"
+            value={track.opacity ?? 0.8}
+            onChange={(e) => onUpdate(track.id, { opacity: parseFloat(e.target.value) })}
+            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <label className="text-xs text-white/40">{t('lineWidth')}</label>
+            <span className="text-[10px] text-white/60">{track.width ?? 3}px</span>
+          </div>
+          <input 
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            value={track.width ?? 3}
+            onChange={(e) => onUpdate(track.id, { width: parseInt(e.target.value) })}
+            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-white/40">{t('lineStyle')}</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(['solid', 'dashed', 'dotted'] as const).map(style => (
+              <button
+                key={style}
+                onClick={() => onUpdate(track.id, { lineStyle: style })}
+                className={cn(
+                  "py-1.5 px-2 rounded text-[10px] border transition-colors",
+                  track.lineStyle === style || (!track.lineStyle && style === 'solid')
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                )}
+              >
+                {t(style)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </Panel>
   );
 });

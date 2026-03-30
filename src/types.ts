@@ -25,5 +25,8 @@ export interface GPXTrack {
   elevationLoss: number; // in meters
   hidden?: boolean;
   color?: string;
+  opacity?: number;
+  width?: number;
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
   poi?: POI[];
 }

@@ -29,6 +29,9 @@ interface RoutingContextType {
   hasSelection: boolean;
   setHasSelection: (has: boolean) => void;
   addWaypoint: (point: GPXPoint) => Promise<void>;
+  updateWaypoint: (index: number, point: GPXPoint) => Promise<void>;
+  insertWaypoint: (index: number, point: GPXPoint) => Promise<void>;
+  removeWaypoint: (index: number) => Promise<void>;
   clearWaypoints: () => void;
   removeLastWaypoint: () => void;
   reverseWaypoints: () => Promise<void>;
@@ -36,6 +39,8 @@ interface RoutingContextType {
   roundTrip: () => Promise<void>;
   isCalculating: boolean;
   setIsCalculating: (calculating: boolean) => void;
+  selectedWaypointIndex: number | null;
+  setSelectedWaypointIndex: (index: number | null) => void;
   loadSession: (waypoints: GPXPoint[], trackPoints: GPXPoint[], pois?: POI[]) => void;
 }
 
@@ -54,9 +59,12 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [onMapClick, setOnMapClick] = useState<((lat: number, lng: number) => void) | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
   const [isCalculating, setIsCalculatingState] = useState(false);
+  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(null);
   const isCalculatingRef = useRef(false);
+  const lastOperationIdRef = useRef(0);
 
-  const setIsCalculating = useCallback((val: boolean) => {
+  const setIsCalculating = useCallback((val: boolean, opId?: number) => {
+    if (opId !== undefined && opId !== lastOperationIdRef.current) return;
     isCalculatingRef.current = val;
     setIsCalculatingState(val);
   }, []);
@@ -88,6 +96,8 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const recalculateTrack = useCallback(async (points: GPXPoint[], routing: boolean, act: ActivityType) => {
     if (isCalculatingRef.current) return;
+    const opId = ++lastOperationIdRef.current;
+
     if (points.length === 0) {
       setTrackPoints([]);
       return;
@@ -97,11 +107,15 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsCalculating(true);
       try {
         const elevations = await getElevation([points[0]]);
+        if (opId !== lastOperationIdRef.current) return;
         setTrackPoints([{ ...points[0], ele: elevations[0] || 0 }]);
       } catch (error) {
+        if (opId !== lastOperationIdRef.current) return;
         setTrackPoints([points[0]]);
       } finally {
-        setIsCalculating(false);
+        if (opId === lastOperationIdRef.current) {
+          setIsCalculating(false);
+        }
       }
       return;
     }
@@ -115,7 +129,11 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         finalPoints = points;
       }
       
+      if (opId !== lastOperationIdRef.current) return;
+
       const elevations = await getElevation(finalPoints);
+      if (opId !== lastOperationIdRef.current) return;
+
       const pointsWithEle = finalPoints.map((p, i) => ({
         ...p,
         ele: elevations[i] || 0
@@ -123,28 +141,32 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setTrackPoints(pointsWithEle);
     } catch (error) {
+      if (opId !== lastOperationIdRef.current) return;
       setTrackPoints(points);
     } finally {
-      setIsCalculating(false);
+      setIsCalculating(false, opId);
     }
-  }, [isCalculating, setIsCalculating]);
+  }, [setIsCalculating]);
 
   const addWaypoint = useCallback(async (point: GPXPoint) => {
     if (isCalculatingRef.current) return;
+    const opId = ++lastOperationIdRef.current;
     const currentWaypoints = waypointsRef.current;
     
     if (currentWaypoints.length === 0) {
       setIsCalculating(true);
       try {
         const elevations = await getElevation([point]);
+        if (opId !== lastOperationIdRef.current) return;
         const pointWithEle = { ...point, ele: elevations[0] || 0 };
         updateWaypoints([pointWithEle]);
         setTrackPoints([pointWithEle]);
       } catch (error) {
+        if (opId !== lastOperationIdRef.current) return;
         updateWaypoints([point]);
         setTrackPoints([point]);
       } finally {
-        setIsCalculating(false);
+        setIsCalculating(false, opId);
       }
       return;
     }
@@ -155,7 +177,9 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsCalculating(true);
       try {
         const segment = await getRoute([lastWaypoint, point], activity);
+        if (opId !== lastOperationIdRef.current) return;
         const elevations = await getElevation(segment);
+        if (opId !== lastOperationIdRef.current) return;
         const segmentWithEle = segment.map((p, i) => ({
           ...p,
           ele: elevations[i] || 0
@@ -165,35 +189,66 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateWaypoints([...currentWaypoints, newWaypoint]);
         setTrackPoints(prev => [...prev, ...segmentWithEle.slice(1)]);
       } catch (error) {
+        if (opId !== lastOperationIdRef.current) return;
         console.error('Routing failed, falling back to straight line', error);
         toast.error(t('routingFailedFallback'));
         const elevations = await getElevation([point]);
+        if (opId !== lastOperationIdRef.current) return;
         const pointWithEle = { ...point, ele: elevations[0] || 0 };
         updateWaypoints([...currentWaypoints, pointWithEle]);
         setTrackPoints(prev => [...prev, pointWithEle]);
       } finally {
-        setIsCalculating(false);
+        setIsCalculating(false, opId);
       }
     } else {
       setIsCalculating(true);
       try {
         const elevations = await getElevation([point]);
+        if (opId !== lastOperationIdRef.current) return;
         const pointWithEle = { ...point, ele: elevations[0] || 0 };
         updateWaypoints([...currentWaypoints, pointWithEle]);
         setTrackPoints(prev => [...prev, pointWithEle]);
       } catch (error) {
+        if (opId !== lastOperationIdRef.current) return;
         updateWaypoints([...currentWaypoints, point]);
         setTrackPoints(prev => [...prev, point]);
       } finally {
-        setIsCalculating(false);
+        setIsCalculating(false, opId);
       }
     }
-  }, [isRoutingEnabled, activity, updateWaypoints, isCalculating, setIsCalculating, t]);
+  }, [isRoutingEnabled, activity, updateWaypoints, setIsCalculating, t]);
+
+  const updateWaypoint = useCallback(async (index: number, point: GPXPoint) => {
+    const currentWaypoints = [...waypointsRef.current];
+    if (index < 0 || index >= currentWaypoints.length) return;
+    
+    currentWaypoints[index] = point;
+    updateWaypoints(currentWaypoints);
+    await recalculateTrack(currentWaypoints, isRoutingEnabled, activity);
+  }, [isRoutingEnabled, activity, recalculateTrack, updateWaypoints]);
+
+  const insertWaypoint = useCallback(async (index: number, point: GPXPoint) => {
+    const currentWaypoints = [...waypointsRef.current];
+    currentWaypoints.splice(index, 0, point);
+    updateWaypoints(currentWaypoints);
+    await recalculateTrack(currentWaypoints, isRoutingEnabled, activity);
+  }, [isRoutingEnabled, activity, recalculateTrack, updateWaypoints]);
+
+  const removeWaypoint = useCallback(async (index: number) => {
+    const currentWaypoints = [...waypointsRef.current];
+    if (index < 0 || index >= currentWaypoints.length) return;
+    
+    currentWaypoints.splice(index, 1);
+    updateWaypoints(currentWaypoints);
+    await recalculateTrack(currentWaypoints, isRoutingEnabled, activity);
+  }, [isRoutingEnabled, activity, recalculateTrack, updateWaypoints]);
 
   const clearWaypoints = useCallback(() => {
+    lastOperationIdRef.current++;
+    setIsCalculating(false);
     updateWaypoints([]);
     setTrackPoints([]);
-  }, [updateWaypoints]);
+  }, [updateWaypoints, setIsCalculating]);
 
   const removeLastWaypoint = useCallback(() => {
     const currentWaypoints = waypointsRef.current;
@@ -252,6 +307,9 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     hasSelection,
     setHasSelection,
     addWaypoint,
+    updateWaypoint,
+    insertWaypoint,
+    removeWaypoint,
     clearWaypoints,
     removeLastWaypoint,
     reverseWaypoints,
@@ -259,11 +317,13 @@ export const RoutingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     roundTrip,
     isCalculating,
     setIsCalculating,
+    selectedWaypointIndex,
+    setSelectedWaypointIndex,
     loadSession
   }), [
     isEditMode, isRoutingEnabled, isMinimized, activity, waypoints, trackPoints, pois, 
-    activePanel, onMapClick, hasSelection, addWaypoint, clearWaypoints, removeLastWaypoint, 
-    reverseWaypoints, backToStart, roundTrip, isCalculating, setIsCalculating, loadSession
+    activePanel, onMapClick, hasSelection, addWaypoint, updateWaypoint, insertWaypoint, removeWaypoint, clearWaypoints, removeLastWaypoint, 
+    reverseWaypoints, backToStart, roundTrip, isCalculating, setIsCalculating, selectedWaypointIndex, loadSession
   ]);
 
   return (
